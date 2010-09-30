@@ -24,7 +24,6 @@ import krbV
 import os
 
 import errors
-from user import User
 
 
 class MutableStat(object):
@@ -152,6 +151,7 @@ def user_member_of(meta, principal_name, group_name):
     """
     Check if the principal_name is member of group_name
     """
+    from user import User
     user = User(meta, principal_name)
     user.populate()
     if (group_name in user.groups):

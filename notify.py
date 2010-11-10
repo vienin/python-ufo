@@ -1,12 +1,33 @@
-from amqplib import client_0_8 as amqp
-from ufo.constants import Messaging, ShareDoc
+# Copyright (C) 2010  Agorabox. All Rights Reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 import config
 import json
 import os
-import xmlrpclib as rpc
-from ipalib.rpc import KerbTransport
 
-class Notify(config.Debuggable):
+import xmlrpclib as rpc
+
+from ipalib.rpc import KerbTransport
+from amqplib import client_0_8 as amqp
+
+from ufo.debugger import Debugger
+from ufo.constants import Messaging, ShareDoc
+
+
+class Notify(Debugger):
 
     def __init__(self):
         pass
@@ -110,7 +131,7 @@ class Notify(config.Debuggable):
 
     def _recv_callback(self, meta, msg):
         try:     
-            self._debug("Start")
+            self.debug("Start")
             os.environ["KRB5CCNAME"]=meta['apache_env']['KRB5CCNAME']
             
             msg_body    = json.loads(msg.body)
@@ -121,7 +142,7 @@ class Notify(config.Debuggable):
                 # src is the user who sent the invitation
                 src  = msg_body["src"]
                 dest = msg_body["dest"]
-                self._debug("--> '%s' invites '%s' to be his/her friend" %
+                self.debug("--> '%s' invites '%s' to be his/her friend" %
                             (src, dest))
                 return msg_body
 
@@ -130,7 +151,7 @@ class Notify(config.Debuggable):
                 # dest is the host, who invited src
                 src  = msg_body["src"]
                 dest = msg_body["dest"]
-                self._debug("--> '%s' accepted the friendship invitation sent by '%s'" %
+                self.debug("--> '%s' accepted the friendship invitation sent by '%s'" %
                             (src, dest))
                 return msg_body
             
@@ -141,7 +162,7 @@ class Notify(config.Debuggable):
                 permissions = msg_body["permissions"]
                 # FIXME : don't forget to delete this print 
                 # instruction after debugging
-                self._debug("--> '%s' shares the document '%s' (%s) with '%s'." % 
+                self.debug("--> '%s' shares the document '%s' (%s) with '%s'." % 
                             (provider, document, permissions, participant))
                 return msg_body
 
@@ -152,12 +173,12 @@ class Notify(config.Debuggable):
             # ValueError: No JSON object could be decoded
             # this exception is raised when we receive a not json message
             # TODO : logging
-            self._debug("ERROR, raised exception %s"% str(e))        
+            self.debug("ERROR, raised exception %s"% str(e))        
         except Exception, e:
-            self._debug("ERROR, raised exception %s"% str(e))        
+            self.debug("ERROR, raised exception %s"% str(e))        
             raise e
         finally:
-            self._debug("End")
+            self.debug("End")
 
     def get_notification(self, meta, dest_user):
         conn = amqp.Connection(host= config.messaging_host + ':' + 

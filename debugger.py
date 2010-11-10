@@ -1,9 +1,25 @@
+# Copyright (C) 2010  Agorabox. All Rights Reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 import syslog
 import traceback
 
 import config
 
-class Debuggable(object):
+class Debugger(object):
   '''
   This class implements a generic debuging method that all debuggable
   objects should use.
@@ -36,7 +52,7 @@ class Debuggable(object):
     self._validateName()
     return self._name
 
-  def _debug(self, args):
+  def debug(self, args):
     '''
     Quick method to output some debugging information which states the
     thread name a colon, and whatever arguments have been passed to
@@ -46,37 +62,16 @@ class Debuggable(object):
       args: a list of additional arguments to pass, much like what
         print() takes.
     '''
-    # FIXME : change the levels list bellow
-    levels = {
-      'CacheManager(_genCacheOpcodes)': 9,
-      'CacheManager(_validateCache)':   9,
-      'CacheManager(_generatePath)':    9,
-      'CacheManager(_cacheStat)':       9,
-      'CacheManager(_cacheFile)':       9,
-      'CacheManager(_cacheDir)':        9,
-      'CacheManager(statFile)':         9,
-      }
 
     self._validateName()
 
-    if config.debugMode:
-      if not config.syslogOpen:
-        syslog.openlog(config.progName)
-        config.syslogOpen = True
-        self._debug('Opened syslog.')
-
+    if config.debug_mode:
       name = '%s(%s)' % (self._getName(), self._getCaller()[2])
       s = '%s: %s' % (name, args)
       if len(s) > 252:
         s = s[:252] + '...'
 
-      try:
-        level = levels[name]
-      except KeyError:
-        level = 0
-
-      if config.debugLevel >= level:
-        syslog.syslog(syslog.LOG_WARNING, s)
+      syslog.syslog(syslog.LOG_WARNING, s)
 
   def _getCaller(self, backsteps=1):
     '''

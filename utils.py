@@ -15,15 +15,15 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-import magic
 import time
-from threading import Lock
+import krbV
+import magic
 import string
 import random
-import krbV
-import os
+import syslog
+import traceback
 
-import errors
+from threading import RLock
 
 
 class MutableStat(object):
@@ -95,10 +95,10 @@ class CacheDict(dict):
   
   _cacheTimeout = 0
   _accesslock   = None
-  
+
   def __init__(self, timeout):
     self._cacheTimeout = timeout
-    self._accesslock   = Lock()
+    self._accesslock   = RLock()
 
   def get(self, key):
     return self[key]['value']
@@ -113,13 +113,12 @@ class CacheDict(dict):
   def invalidate(self, key):
     if self.has_key(key):
       return self.pop(key)['value']
-    
+
   def acquire(self):
     self._accesslock.acquire()
 
   def release(self):
     self._accesslock.release()
-
 
 
 def random_string(dir=None):

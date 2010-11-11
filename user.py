@@ -651,7 +651,7 @@ class User(Debugger):
             self.friend_helper.delete(friend_object)
 
             # remove follower from the followers list
-            del self.followers[unicode(follower)]   
+            del self.followers[unicode(follower)]
        
         except Exception, e:
             self.debug("ERROR. Raised exception : %s" % str(e))

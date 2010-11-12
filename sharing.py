@@ -53,6 +53,12 @@ class FriendDocument(Document):
         if doc['doctype'] == 'FriendDocument':
             yield doc['status'], doc
 
+    @ViewField.define('friend')
+    def by_id(doc):
+      if doc['doctype'] == "FriendDocument":
+        yield doc['_id'], doc
+
+
 
 class ShareDocument(Document):
 

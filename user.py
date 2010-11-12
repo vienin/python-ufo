@@ -577,7 +577,7 @@ class User(Debugger):
         finally:
             self.debug('End')
 
-    def add_follower(self, new_follower, notify = True):
+    def add_follower(self, new_follower, notify=True):
         """
         description ...
 

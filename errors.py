@@ -92,39 +92,39 @@ class BadFriendshipStatus(PrivateError):
 
 class AlreadyFollowingError(PrivateError):
     """
-    **6002** Raised when a user attemps to invite/accept a user already a following.
+    **6002** Raised when a user attempts to invite/accept a user already a following.
 
     For example:
 
     >>> raise AlreadyFollowingError()
     Traceback (most recent call last):
       ...
-    AlreadyFollowingError: the user you attemp to invite/accept is already a following user.
+    AlreadyFollowingError: the user you attempt to invite/accept is already a following user.
 
     """
     errno = 6002
-    format = 'the user you attemp to invite/accept is already a following user.'
+    format = 'the user you attempt to invite/accept is already a following user.'
 
 
 class AlreadyFollowerError(PrivateError):
     """
-    **6012** Raised when a user attemps to invite/accept a user already a follower.
+    **6012** Raised when a user attempts to invite/accept a user already a follower.
 
     For example:
 
     >>> raise AlreadyFollowerError()
     Traceback (most recent call last):
       ...
-    AlreadyFollowerError: the user you attemp to invite/accept is already a follower user.
+    AlreadyFollowerError: the user you attempt to invite/accept is already a follower user.
 
     """
     errno = 6012
-    format = 'the user you attemp to invite/accept is already a follower user.'
+    format = 'the user you attempt to invite/accept is already a follower user.'
 
 
 class PendingFollowingError(PrivateError):
     """
-    **6003** Raised when a user attemps to invite a following user who is already 
+    **6003** Raised when a user attempts to invite a following user who is already 
     in his pending followings list
 
     For example:
@@ -141,7 +141,7 @@ class PendingFollowingError(PrivateError):
 
 class PendingFollowerError(PrivateError):
     """
-    **6013** Raised when a user attemps to invite a follower user who is already 
+    **6013** Raised when a user attempts to invite a follower user who is already 
     in his pending followers list
 
     For example:
@@ -158,7 +158,7 @@ class PendingFollowerError(PrivateError):
 
 class BlockedUserError(PrivateError):
     """
-    **6004** Raised when a user attemps to invite a blocked user to be 
+    **6004** Raised when a user attempts to invite a blocked user to be 
     his/her following or his/her follower, 
 
     For example:
@@ -178,7 +178,7 @@ class BlockedUserError(PrivateError):
 
 class AlreadySharedDocError(PrivateError):
     """
-    **6020** Raised when a user attemps to share an already shared document
+    **6020** Raised when a user attempts to share an already shared document
     or a pending shared document
     For example:
 
@@ -230,8 +230,8 @@ class RequiredAttributeUserError(PrivateError):
 class UnknownUserError(PrivateError): 
     """
     This exception is raised when :
-      - unknown problem is occured
+      - unknown problem occurred
     """
     errno = 6205
-    format = 'unknown problem is occured'
+    format = 'unknown problem occurred'
 

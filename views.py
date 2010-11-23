@@ -18,8 +18,11 @@
 
 import os
 import stat
+import utils
 
 from filesystem import SyncDocument
+from sharing import ShareDocument
+
 from couchdb.mapping import ViewField
 
 
@@ -56,8 +59,8 @@ class SortedByTypeSyncDocument(SyncDocument):
                 start = []
 
             end = start + [{}]
-            for row in cls.sorted_by_type(database, 
-                                          startkey=start, 
+            for row in cls.sorted_by_type(database,
+                                          startkey=start,
                                           endkey=end,
                                           group_level=len(start) + 1):
 
@@ -67,20 +70,53 @@ class SortedByTypeSyncDocument(SyncDocument):
 class BuddySharesSyncDocument(SyncDocument):
 
     @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum)
-    def sorted_by_uid(doc):
-        if doc['doctype'] == "SyncDocument" and \
-           doc["type"] != "application/x-directory":
-            yield doc['uid'], 1
+    def sorted_by_provider(doc):
+        if doc['doctype'] == "ShareDocument":
+            yield doc['provider'], 1
 
     @classmethod
     def getDocuments(cls, database, buddy=None):
         if buddy:
             for doc in cls.by_uid(database, key=int(buddy)):
-              yield doc
+              if doc.type != "application/x-directory":
+                yield doc
 
         else:
-            for row in cls.sorted_by_uid(database, group=True):
-                yield cls(filename=row['key'], mode=0555 | stat.S_IFDIR, uid=row['key'])
+            for row in cls.sorted_by_provider(database, group=True):
+              if row['key'] != database.name:
+                # Retrieve provider infos from gss api
+                infos = utils.get_user_infos(row['key'])
+                yield cls(filename=infos['fullname'],
+                          mode=0555 | stat.S_IFDIR,
+                          uid=infos['uid'],
+                          gid=infos['gid'])
+
+
+class MySharesSyncDocument(SyncDocument):
+
+    @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum)
+    def sorted_by_participant(doc):
+        if doc['doctype'] == "ShareDocument":
+            yield doc['participant'], 1
+
+    @classmethod
+    def getDocuments(cls, database, buddy=None):
+        if buddy:
+            participant = utils.get_user_infos(uid=int(buddy))['login']
+            for share in ShareDocument.by_provider_and_participant(database,
+                                                                   key=[database.name, participant]):
+              for doc in cls.by_path(database, key=share.filepath):
+                yield doc
+
+        else:
+            for row in cls.sorted_by_participant(database, group=True):
+              if row['key'] != database.name:
+                # Retrieve participant infos from gss api
+                infos = utils.get_user_infos(row['key'])
+                yield cls(filename=infos['fullname'],
+                          mode=0555 | stat.S_IFDIR,
+                          uid=infos['uid'],
+                          gid=infos['gid'])
 
 
 class TaggedSyncDocument(SyncDocument):

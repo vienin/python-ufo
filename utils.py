@@ -17,6 +17,7 @@
 
 import time
 import krbV
+import pwd
 import magic
 import string
 import random
@@ -157,3 +158,18 @@ def user_member_of(meta, principal_name, group_name):
         return True
     else:
         return False
+
+def get_user_infos(login=None, uid=None):
+    assert login or uid
+
+    if login:
+      key = login
+      function = pwd.getpwnam
+    else:
+      key = uid
+      function = pwd.getpwuid
+
+    return { 'login'    : function(key).pw_name,
+             'fullname' : function(key).pw_gecos,
+             'uid'      : function(key).pw_uid,
+             'gid'      : function(key).pw_gid }

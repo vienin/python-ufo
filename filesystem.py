@@ -120,6 +120,11 @@ class SyncDocument(Document):
           for tag in doc['tags']:
             yield tag, doc
 
+    @ViewField.define('syncdocument')
+    def by_id(doc):
+      if doc['doctype'] == "SyncDocument":
+        yield doc['_id'], doc
+
     def __str__(self):
         return '<%s id:%s path:%s type:%s>' % \
                (self.doctype, self.id, os.path.join(self.dirpath, self.filename), self.type)

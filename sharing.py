@@ -18,21 +18,14 @@
 
 
 from database import Document, TextField, ViewField
-
+from constants import Notification
 
 class FriendDocument(Document):
 
-    doctype      = TextField(default="FriendDocument")
+    doctype = TextField(default="FriendDocument")
 
-    status       = TextField()     # "FOLLOWER" | "FOLLOWING" | "PENDING_FOLLOWER" |
-                                   # "PENDING_FOLLOWING" | "BLOCKED_USER" (see constants.py)
-    login        = TextField()
-    notification = TextField()     # 'NOT_NOTIFY' | 'NOTIFY' (see constants.py)
-
-    @ViewField.define('friend')
-    def by_notification(doc):
-        if doc['doctype'] == 'FriendDocument':
-            yield doc['notification'], doc
+    status = TextField()
+    login  = TextField()
 
     @ViewField.define('friend')
     def by_login(doc):
@@ -59,16 +52,15 @@ class FriendDocument(Document):
         yield doc['_id'], doc
 
 
-
 class ShareDocument(Document):
 
-    doctype     = TextField(default="ShareDocument")
+    doctype = TextField(default="ShareDocument")
 
     provider    = TextField()
     participant = TextField()
     filepath    = TextField()
-    permissions = TextField()    # R or RW
-    flags       = TextField()    # ShareDoc.PENDING_SHARE_FLAG or ShareDoc.ENABLED_SHARE_FLAG
+    permissions = TextField()
+    flags       = TextField()
 
     @ViewField.define('share')
     def by_provider_and_path(doc):
@@ -83,9 +75,14 @@ class ShareDocument(Document):
     @ViewField.define('share')
     def by_provider_and_participant_and_path(doc):
         if doc['doctype'] == 'ShareDocument':
-            yield [doc['provider'], doc['participant']], doc
+            yield [doc['provider'], doc['participant'], doc['filepath']], doc
 
     @ViewField.define('share')
     def by_provider_and_participant_and_flag(doc):
         if doc['doctype'] == 'ShareDocument':
             yield [doc['provider'], doc['participant'], doc['flags']], doc
+
+    @ViewField.define('share')
+    def by_id(doc):
+      if doc['doctype'] == "ShareDocument":
+        yield doc['_id'], doc

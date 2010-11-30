@@ -187,7 +187,7 @@ class CouchedFile(Debugger):
             self.debug("Could not close %s (%s), %e" % (path, realpath, e.message))
             raise
 
-        if release and self.flags & (os.O_WRONLY | os.O_TRUNC | os.O_APPEND):
+        if release and self.flags & (os.O_RDWR | os.O_WRONLY | os.O_TRUNC | os.O_APPEND):
             self.debug("Updating document %s because it has been modified" % path)
 
             newstats = os.lstat(realpath)
@@ -237,7 +237,7 @@ class CouchedFileSystem(Debugger):
         # Instantiate couchdb document helper
         self.doc_helper = DocumentHelper(SyncDocument, db_name, db_uri, db_port, batch=False)
 
-    def mkdir(self, path, mode):
+    def mkdir(self, path, mode, uid=None, gid=None):
         '''
         Call type : "Create"
         '''
@@ -248,12 +248,17 @@ class CouchedFileSystem(Debugger):
         # Firstly make the directory on the filesystem
         os.mkdir(self.real_path(path), 0755)
 
+        if not uid:
+            uid = stats.st_uid
+        if not gid:
+            gid = stats.st_gid
+
         # Then create the document into the database
         stats = os.lstat(self.real_path(path))
         fields = { 'filename' : os.path.basename(path),
                    'dirpath'  : os.path.dirname(path),
-                   'uid'      : stats.st_uid,
-                   'gid'      : stats.st_gid,
+                   'uid'      : uid,
+                   'gid'      : gid,
                    'mode'     : mode | stat.S_IFDIR,
                    'type'     : "application/x-directory",
                    'stats'    : stats }
@@ -268,7 +273,7 @@ class CouchedFileSystem(Debugger):
         
         return updated
 
-    def symlink(self, dest, symlink):
+    def symlink(self, dest, symlink, uid=None, gid=None):
         '''
         Call type : "Create"
         '''
@@ -277,12 +282,17 @@ class CouchedFileSystem(Debugger):
         # Firstly make the symlink on the filesystem
         os.symlink(dest, self.real_path(symlink))
 
+        if not uid:
+            uid = stats.st_uid
+        if not gid:
+            gid = stats.st_gid
+
         # Then create the document into the database
         stats = os.lstat(self.real_path(symlink))
         fields = { 'filename' : os.path.basename(symlink),
                    'dirpath'  : os.path.dirname(symlink),
-                   'uid'      : stats.st_uid,
-                   'gid'      : stats.st_gid,
+                   'uid'      : uid,
+                   'gid'      : gid,
                    'mode'     : 0777 | stat.S_IFLNK,
                    'type'     : "application/x-symlink",
                    'stats'    : stats }

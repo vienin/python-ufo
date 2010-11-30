@@ -52,7 +52,8 @@ class SyncDocument(Document):
                    st_size    = LongField(),
                    st_uid     = IntegerField()))
 
-    tags     = ListField(TextField())
+    # TODO: Use a dedicated document class for tags
+    tags = ListField(TextField())
 
     def __init__(self, stats=None, **fields):
         super(SyncDocument, self).__init__(**fields)
@@ -73,11 +74,11 @@ class SyncDocument(Document):
     
         return stat_result
 
-    def addTag(self, tag):
+    def add_tag(self, tag):
       if tag not in self.tags:
         self.tags.append(tag)
 
-    def delTag(self, tag):
+    def del_tag(self, tag):
       if tag in self.tags:
         self.tags.remove(tag)
 

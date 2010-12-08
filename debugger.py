@@ -14,6 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+import sys
 import syslog
 import traceback
 
@@ -72,6 +73,18 @@ class Debugger(object):
         s = s[:252] + '...'
 
       syslog.syslog(syslog.LOG_WARNING, s)
+
+  def debug_exception(self):
+    if config.debug_mode:
+      exc_info = sys.exc_info()
+
+      self.debug('*** Unhandled exception occurred')
+      self.debug('***     Type: %s' % str(exc_info[0]))
+      self.debug('***    Value: %s' % str(exc_info[1]))
+      self.debug('*** Traceback:')
+
+      for line in traceback.extract_tb(exc_info[2]):
+        self.debug('***    %s(%d) in %s: %s' % line)
 
   def _getCaller(self, backsteps=1):
     '''

@@ -14,12 +14,12 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import errors
 import os
 
 from ipalib import api
 from ipalib.errors import RequirementError, NotFound
 
+from ufo.errors import *
 from ufo.debugger import Debugger
 from ufo.database import DocumentHelper
 from ufo.sharing import FriendDocument
@@ -107,12 +107,17 @@ class User(Debugger):
                 # if we receive a bad attribute
                 if (k not in self.__dict__):
                     self.debug(("%s is a bad attribute")% (k))
-                    raise errors.BadAttributeUserError
+                    raise BadAttributeUserError()
                 else:
                     setattr(self, k, unicode(v))
 
         except Exception, e:
-            self.debug("ERROR. Exception raised : %s" % str(e))
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug("End")
@@ -143,16 +148,18 @@ class User(Debugger):
                 if (e.errno == 4001):
                     # user not found
                     self.debug("The user '%s' do not exist" % self.user_name)
-                    raise errors.UserNotFoundError
+                    raise UserNotFoundError()
 
-                self.debug("The user %s do not exist, but errno is equal to %i instead 4001"
-                           % (self.user_name, e.errno))
-                raise e
+                self.debug_exception()
+                raise
 
             except Exception, e:
-                self.debug("An unknown exception is raised when we try to populate the user %s. Exception : %s"
-                           % (self.user_name, str(e)))
-                raise e
+                if isinstance(e, PrivateError):
+                    self.debug("Raising exception: %s, %s" % (type(e), e))
+                else:
+                    self.debug_exception()
+
+                raise
 
             # WARNING : attributes are always in lowercase even if it is not the case in the ldap schema
 
@@ -249,8 +256,12 @@ class User(Debugger):
             return to_return
 
         except Exception, e:
-            self.debug("ERROR. Raised exception : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug("End")
@@ -265,7 +276,7 @@ class User(Debugger):
         TODO : add an example of use
         """
         if (not (self.user_name and self.first_name and self.last_name and self.realm)):
-            raise errors.RequiredAttributeUserError
+            raise RequiredAttributeUserError()
 
         other_args = { 'krbprincipalname' : unicode(self.user_name + '@' + self.realm),
                        'givenname' : unicode(self.first_name),
@@ -289,53 +300,66 @@ class User(Debugger):
             self.populate()
 
         except RequirementError, e:
-            # a required parameter is not provided
-            # the following exception is raised
+            # a required parameter is not provided the following exception is raised
             # RequirementError with 3007 as errno
-            raise errors.RequiredAttributeUserError
+            raise RequiredAttributeUserError()
 
         except Exception, e:
             self.debug(('An unknown exception was raised during the adding of %s on the ldap')%
                         (self.user_name))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
     def update(self):
         """
         Update the informations about the user on the ldap.
         Attention you must call initialize() method before.
         """
-        ipa_kw = {}     
-        if self.first_name:
-            ipa_kw['givenname']=unicode(self.first_name)
+        try:
+            ipa_kw = {}     
+            if self.first_name:
+                ipa_kw['givenname']=unicode(self.first_name)
 
-        if self.last_name:
-            ipa_kw['sn']=unicode(self.last_name)
+            if self.last_name:
+                ipa_kw['sn']=unicode(self.last_name)
 
-        if self.home_directory:
-            ipa_kw['homedirectory']=unicode(self.home_directory)
+            if self.home_directory:
+                ipa_kw['homedirectory']=unicode(self.home_directory)
 
-        if self.mail:
-            ipa_kw['mail']=unicode(self.mail)
+            if self.mail:
+                ipa_kw['mail']=unicode(self.mail)
 
-        if self.user_password:
-            # TODO : pas trop top le password dans l objet...
-            ipa_kw['userpassword']=unicode(self.user_password)
+            if self.user_password:
+                # TODO : pas trop top le password dans l objet...
+                ipa_kw['userpassword']=unicode(self.user_password)
 
-        if self.street:
-            ipa_kw['street']=unicode(self.street)
+            if self.street:
+                ipa_kw['street']=unicode(self.street)
 
-        # update on the ldap
-        self.debug("ipa_kw : %s" % ipa_kw)
-        api.Command.user_mod(unicode(self.user_name), all=True, raw=True, **ipa_kw)
-        
-        # update the database (FriendDocuments)
-        self.friend_helper.update(self.followings.values())
-        self.friend_helper.update(self.followers.values())
-        self.friend_helper.update(self.pending_followings.values())
-        self.friend_helper.update(self.pending_followers.values())
-        self.friend_helper.update(self.blocked_users.values())
+            # update on the ldap
+            self.debug("ipa_kw : %s" % ipa_kw)
+            api.Command.user_mod(unicode(self.user_name), all=True, raw=True, **ipa_kw)
 
-        self.debug("The user %s was updated." % self.user_name)
+            # update the database (FriendDocuments)
+            self.friend_helper.update(self.followings.values())
+            self.friend_helper.update(self.followers.values())
+            self.friend_helper.update(self.pending_followings.values())
+            self.friend_helper.update(self.pending_followers.values())
+            self.friend_helper.update(self.blocked_users.values())
+
+            self.debug("The user %s was updated." % self.user_name)
+
+        except Exception, e:
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
     def delete(self):
         """
@@ -347,16 +371,21 @@ class User(Debugger):
 
         except NotFound, e:
             if e.errno == 4001:
-                raise errors.UserNotFoundError
+                raise UserNotFoundError()
 
             self.debug("The user %s do not exist, but errno is equal to %i instead 4001"
                        % (self.user_name, e.errno))
-            raise e
+            raise
 
         except Exception, e:
-            self.debug("An unknown exception is raised when we try to populate the user %s. Exception : %s"
-                        % (self.user_name, str(e)))
-            raise e
+            self.debug("An unknown exception is raised when we try to populate the user %s."
+                        % self.user_name)
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
     def add_pending_following(self, new_pending_following, notify=True):
         """
@@ -369,10 +398,7 @@ class User(Debugger):
 
             # populate the object user with the informations 
             # fetched from ldap
-            try:
-                self.populate()
-            except errors.UserNotFoundError:
-                raise errors.UserNotFoundError
+            self.populate()
 
             # check if the user is already a pending following or 
             # a blocked user. If it is, we raise an exception
@@ -394,8 +420,12 @@ class User(Debugger):
             self.pending_followings[unicode(new_pending_following)] = friend_doc
 
         except Exception, e:
-            self.debug("ERROR. Raised exception : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug('End')
@@ -408,10 +438,7 @@ class User(Debugger):
             self.debug('Start')
             # populate the object user with the informations 
             # fetched from ldap
-            try:
-                self.populate()
-            except errors.UserNotFoundError:
-                raise errors.UserNotFoundError
+            self.populate()
 
             # object to delete from the database
             friend_doc = self.pending_followings[unicode(pending_following)]
@@ -421,8 +448,12 @@ class User(Debugger):
             del self.pending_followings[unicode(pending_following)]
 
         except Exception, e:
-            self.debug("ERROR. Raised exception : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug('End')
@@ -436,10 +467,7 @@ class User(Debugger):
             self.debug('Start')
             # populate the object user with the informations 
             # fetched from ldap
-            try:
-                self.populate()
-            except errors.UserNotFoundError:
-                raise errors.UserNotFoundError
+            self.populate()
 
             # To adding the new_following friend we just change the status 
             # of the pending_following corresponding to this friend to 
@@ -476,8 +504,12 @@ class User(Debugger):
                             +' without passing by the "pending_following" state.')
 
         except Exception, e:
-            self.debug("ERROR. Exception raised : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug("End")
@@ -490,10 +522,7 @@ class User(Debugger):
             self.debug('Start')
             # populate the object user with the informations 
             # fetched from ldap
-            try:
-                self.populate()
-            except errors.UserNotFoundError:
-                raise errors.UserNotFoundError
+            self.populate()
 
             # object to delete from the database
             friend_doc = self.followings[unicode(following)]
@@ -503,8 +532,12 @@ class User(Debugger):
             del self.followings[unicode(following)]
 
         except Exception, e:
-            self.debug("ERROR. Raised exception : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug('End')
@@ -517,10 +550,7 @@ class User(Debugger):
             self.debug('Start')
             # populate the object user with the informations 
             # fetched from ldap and database
-            try:
-                self.populate()
-            except errors.UserNotFoundError:
-                raise errors.UserNotFoundError
+            self.populate()
 
             # check if the user is already a pending follower or 
             # a blocked user. If it is, we raise an exception
@@ -528,7 +558,7 @@ class User(Debugger):
                 raise BlockedUserError()
 
             elif new_pending_follower in self.pending_followers.keys():
-                raise errors.PendingFollowerError()
+                raise PendingFollowerError()
                       
             if notify :
                 notification = Notification.NOTIFY
@@ -543,8 +573,12 @@ class User(Debugger):
             self.pending_followers[unicode(new_pending_follower)] = friend_doc
 
         except Exception, e:
-            self.debug("ERROR. Raised exception : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug('End')
@@ -558,10 +592,7 @@ class User(Debugger):
 
             # populate the object user with the informations 
             # fetched from ldap
-            try:
-                self.populate()
-            except errors.UserNotFoundError:
-                raise errors.UserNotFoundError
+            self.populate()
 
             # object to delete from the database
             friend_doc = self.pending_followers[unicode(pending_follower)]
@@ -571,8 +602,12 @@ class User(Debugger):
             del self.pending_followers[unicode(pending_follower)]  
         
         except Exception, e:
-            self.debug("ERROR. Raised exception : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug('End')
@@ -586,10 +621,7 @@ class User(Debugger):
             self.debug('Start')
             # populate the object user with the informations 
             # fetched from ldap
-            try:
-                self.populate()
-            except errors.UserNotFoundError:
-                raise errors.UserNotFoundError
+            self.populate()
 
             # To adding the new_follower friend we just change the status 
             # of the pending_follower corresponding to this friend to 
@@ -627,8 +659,12 @@ class User(Debugger):
                            ' without passing by the "pending_following" state.')
 
         except Exception, e:
-            self.debug("ERROR. Exception raised : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug("End")
@@ -641,10 +677,7 @@ class User(Debugger):
             self.debug('Start')
             # populate the object user with the informations 
             # fetched from ldap
-            try:
-                self.populate()
-            except errors.UserNotFoundError:
-                raise errors.UserNotFoundError
+            self.populate()
 
             # object to delete from the database
             friend_object = self.followers[unicode(follower)]
@@ -654,8 +687,12 @@ class User(Debugger):
             del self.followers[unicode(follower)]
        
         except Exception, e:
-            self.debug("ERROR. Raised exception : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug('End')
@@ -669,10 +706,7 @@ class User(Debugger):
             self.debug('Start')
             # populate the object user with the informations 
             # fetched from ldap
-            try:
-                self.populate()
-            except errors.UserNotFoundError:
-                raise errors.UserNotFoundError
+            self.populate()
 
             # FIXME : when we add a new blocked_user, check if it figures 
             # on the others lists
@@ -713,8 +747,13 @@ class User(Debugger):
                 self.blocked_users[unicode(blocked_user)] = friend_doc
 
         except Exception, e:
-            self.debug("ERROR. Raised exception : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
+
         finally:
             self.debug('End')
 
@@ -727,10 +766,7 @@ class User(Debugger):
 
             # populate the object user with the informations 
             # fetched from ldap
-            try:
-                self.populate()
-            except errors.UserNotFoundError:
-                raise errors.UserNotFoundError
+            self.populate()
 
             # object to delete from the database
             friend_object = self.blocked_users[unicode(blocked_user)]
@@ -740,8 +776,12 @@ class User(Debugger):
             del self.blocked_users[unicode(blocked_user)]
 
         except Exception, e:
-            self.debug("ERROR. Raised exception : %s" % str(e))
-            raise e
+            if isinstance(e, PrivateError):
+                self.debug("Raising exception: %s, %s" % (type(e), e))
+            else:
+                self.debug_exception()
+
+            raise
 
         finally:
             self.debug('End')

@@ -16,7 +16,7 @@
 
 __version__ = (0, 0, 1)
 
-debug_mode = True
+debug_mode = False
 
 
 ##

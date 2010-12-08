@@ -140,8 +140,7 @@ class DocumentHelper(Debugger):
         return documents
 
     def delete(self, document):
-        self.debug("%s: Deleting %s:%s"
-                   % (self, document.doctype, document.id))
+        self.debug("%s: Deleting %s:%s" % (self, document.doctype, document.id))
 
         self.database.delete(document)
 

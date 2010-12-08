@@ -403,7 +403,7 @@ class User(Debugger):
             # check if the user is already a pending following or 
             # a blocked user. If it is, we raise an exception
             if new_pending_following in self.blocked_users.keys():
-                raise BlockedUserError()
+                raise BlockedUserError(new_pending_following)
 
             elif new_pending_following in self.pending_followings.keys():
                 raise PendingFollowingError()
@@ -555,7 +555,7 @@ class User(Debugger):
             # check if the user is already a pending follower or 
             # a blocked user. If it is, we raise an exception
             if new_pending_follower in self.blocked_users.keys():
-                raise BlockedUserError()
+                raise BlockedUserError(new_pending_follower)
 
             elif new_pending_follower in self.pending_followers.keys():
                 raise PendingFollowerError()

@@ -170,8 +170,10 @@ class BlockedUserError(PrivateError):
 
     """
     errno = 6004
-    format = 'blocked user, check your blocked users list or that of your guest'
 
+    def __init__(self, user):
+      self.format = 'User %s is in your blocked user list' % user
+      PrivateError.__init__(self)
 
 ########################################################################
 # File Sharing Errors
@@ -189,7 +191,18 @@ class AlreadySharedDocError(PrivateError):
 
     """
     errno = 6020
-    format = 'Document already shared with this user'
+
+    def __init__(self, participant, path):
+      self.format = 'Document %s already shared with %s' % (participant, path)
+      PrivateError.__init__(self)
+
+
+class BadOwnerError(PrivateError):
+    errno = 6021
+
+    def __init__(self, owner, path):
+      self.format = 'User %s is not the owner of %s' % (owner, path)
+      PrivateError.__init__(self)
 
 
 ########################################################################

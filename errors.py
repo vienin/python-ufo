@@ -12,6 +12,8 @@
 
 
 """
+
+
 class PrivateError(StandardError):
     """
     Base class for exceptions that are *never* forwarded in an RPC response.
@@ -20,15 +22,19 @@ class PrivateError(StandardError):
     #         public
     format = ''
 
-    def __init__(self, **kw):
-        self.msg = self.format % kw
-        self.kw = kw
-        for (key, value) in kw.iteritems():
-            assert not hasattr(self, key), 'conflicting kwarg %s.%s = %r' % (
-                self.__class__.__name__, key, value,
-            )
-            setattr(self, key, value)
-        StandardError.__init__(self, self.msg)
+    def __init__(self, *arg, **kw):
+        if self.format:
+            self.msg = self.format % kw
+            self.kw = kw
+            for (key, value) in kw.iteritems():
+                assert not hasattr(self, key), 'conflicting kwarg %s.%s = %r' % (
+                    self.__class__.__name__, key, value,
+                )
+                setattr(self, key, value)
+            StandardError.__init__(self, self.msg)
+
+        else:
+            StandardError.__init__(self, *arg)
 
 class CCacheError(PrivateError):
     """
@@ -122,6 +128,16 @@ class AlreadyFollowerError(PrivateError):
     format = 'the user you attempt to invite/accept is already a follower user.'
 
 
+class NotFollowingError(PrivateError):
+    errno = 6003
+    format = 'User is not your following'
+
+
+class NotFollowerError(PrivateError):
+    errno = 6013
+    format = 'User is not your follower'
+
+
 class PendingFollowingError(PrivateError):
     """
     **6003** Raised when a user attempts to invite a following user who is already 
@@ -135,7 +151,7 @@ class PendingFollowingError(PrivateError):
     PendingFollowingError: user is in the pending followings list
 
     """
-    errno = 6003
+    errno = 6004
     format = 'user is in the pending followings list'
 
 
@@ -152,7 +168,7 @@ class PendingFollowerError(PrivateError):
     PendingFollowerError: user is in the pending followers list
 
     """
-    errno = 6013
+    errno = 6014
     format = 'user is in the pending followers list'
 
 
@@ -170,10 +186,8 @@ class BlockedUserError(PrivateError):
 
     """
     errno = 6004
+    format = 'User not in the blocked users list'
 
-    def __init__(self, user):
-      self.format = 'User %s is in your blocked user list' % user
-      PrivateError.__init__(self)
 
 ########################################################################
 # File Sharing Errors
@@ -191,18 +205,12 @@ class AlreadySharedDocError(PrivateError):
 
     """
     errno = 6020
-
-    def __init__(self, participant, path):
-      self.format = 'Document %s already shared with %s' % (participant, path)
-      PrivateError.__init__(self)
+    format = 'Document already shared with this participant'
 
 
 class BadOwnerError(PrivateError):
     errno = 6021
-
-    def __init__(self, owner, path):
-      self.format = 'User %s is not the owner of %s' % (owner, path)
-      PrivateError.__init__(self)
+    format = 'User not the owner of the file'
 
 
 ########################################################################

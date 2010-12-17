@@ -81,21 +81,21 @@ class NewFriendshipNotification(NotificationDocument):
                    % (self.following, self.follower))
 
         account_remote = rpc.Server(config.account_host, KerbTransport())
-        account_remote.account.accept_follower(self.following, self.follower)
+        account_remote.account.accept_following(self.following)
 
     def refuse_invitation(self):
         self.debug("Refusing the friend invitation from '%s' to '%s'"
                    % (self.following, self.follower))
 
         account_remote = rpc.Server(config.account_host, KerbTransport())
-        account_remote.account.refuse_follower(self.following, self.follower)
+        account_remote.account.refuse_following(self.following)
 
     def block_invitation(self):
         self.debug("Blocking the friend invitation from '%s' to '%s'"
                    % (self.following, self.follower))
 
         account_remote = rpc.Server(config.account_host, KerbTransport())
-        account_remote.account.block_user(self.follower, self.following)
+        account_remote.account.block_user(self.following)
 
 
 class AcceptedFriendshipNotification(NotificationDocument):
@@ -127,7 +127,7 @@ class AcceptedFriendshipNotification(NotificationDocument):
                    % (self.following, self.follower))
 
         sync_remote = rpc.Server(config.sync_host, KerbTransport())
-        sync_remote.sync.proceed_pending_shares(self.following, self.follower)
+        sync_remote.sync.proceed_pending_shares(self.following)
 
 
 class CanceledFriendshipNotification(NotificationDocument):

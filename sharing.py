@@ -58,14 +58,14 @@ class ShareDocument(Document):
 
     provider    = TextField()
     participant = TextField()
-    filepath    = TextField()
+    fileid      = TextField()
     permissions = TextField()
     flags       = TextField()
 
     @ViewField.define('share')
-    def by_provider_and_path(doc):
+    def by_provider_and_fileid(doc):
         if doc['doctype'] == 'ShareDocument':
-            yield [doc['provider'], doc['filepath']], doc
+            yield [doc['provider'], doc['fileid']], doc
 
     @ViewField.define('share')
     def by_provider_and_participant(doc):
@@ -73,9 +73,9 @@ class ShareDocument(Document):
             yield [doc['provider'], doc['participant']], doc
 
     @ViewField.define('share')
-    def by_provider_and_participant_and_path(doc):
+    def by_provider_and_participant_and_fileid(doc):
         if doc['doctype'] == 'ShareDocument':
-            yield [doc['provider'], doc['participant'], doc['filepath']], doc
+            yield [doc['provider'], doc['participant'], doc['fileid']], doc
 
     @ViewField.define('share')
     def by_provider_and_participant_and_flag(doc):

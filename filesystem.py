@@ -18,14 +18,16 @@
 
 import os
 import stat
+import uuid
 import errno
+import shutil
 
 from utils import MutableStat, MimeType
 from debugger import Debugger
 from database import *
 
 
-class SyncDocument(Document):
+class SyncDocument(UTF8Document):
 
     doctype  = TextField(default="SyncDocument")
     filename = TextField()
@@ -57,6 +59,7 @@ class SyncDocument(Document):
 
     def __init__(self, stats=None, **fields):
         super(SyncDocument, self).__init__(**fields)
+
         if stats:
             self.set_stats(stats)
   
@@ -69,6 +72,8 @@ class SyncDocument(Document):
         for field in self.stats._fields.keys():
             if field in ['st_uid', 'st_gid', 'st_mode']:
                 setattr(stat_result, field, getattr(self, field[3:]))
+            elif field == 'st_ino' and self.id:
+                setattr(stat_result, field, int(self.id[16:], 16))
             else:
                 setattr(stat_result, field, getattr(self.stats, field))
     
@@ -127,8 +132,11 @@ class SyncDocument(Document):
         yield doc['_id'], doc
 
     def __str__(self):
-        return '<%s id:%s path:%s type:%s>' % \
-               (self.doctype, self.id, os.path.join(self.dirpath, self.filename), self.type)
+        return ('<%s id:%s path:%s type:%s>'
+                % (self.doctype,
+                   self.id,
+                   os.path.join(self.dirpath, self.filename),
+                   self.type))
 
     def __repr__(self):
         return str(self)
@@ -248,13 +256,11 @@ class CouchedFileSystem(Debugger):
         # Firstly make the directory on the filesystem
         os.mkdir(self.real_path(path), 0755)
 
-        if not uid:
-            uid = stats.st_uid
-        if not gid:
-            gid = stats.st_gid
-
         # Then create the document into the database
         stats = os.lstat(self.real_path(path))
+        if not uid: uid = stats.st_uid
+        if not gid: gid = stats.st_gid
+
         fields = { 'filename' : os.path.basename(path),
                    'dirpath'  : os.path.dirname(path),
                    'uid'      : uid,
@@ -338,6 +344,20 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(document)
 
+    def tag(self, path, tag, remove=False):
+        '''
+        Call type : "Update"
+        '''
+
+        # Then update the document into the database
+        document = self[path]
+        if remove:
+            document.del_tag(tag)
+        else:
+            document.add_tag(tag)
+
+        return self.doc_helper.update(document)
+
     def utime(self, path, times):
         '''
         Call type : "Update"
@@ -381,7 +401,7 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(documents)
 
-    def unlink(self, path, remove_db=False):
+    def unlink(self, path, nodb=False):
         '''
         Call type : "Update"
         '''
@@ -389,19 +409,22 @@ class CouchedFileSystem(Debugger):
         # Firstly remove the file from the filesystem
         os.unlink(self.real_path(path))
 
-        if remove_db:
+        if not nodb:
             # Then remove the document from the database
             self.doc_helper.delete(self[path])
 
-    def rmdir(self, path, remove_db=False):
+    def rmdir(self, path, nodb=False, force=False):
         '''
         Call type : "Update"
         '''
 
         # Firstly remove the file from the filesystem
-        os.rmdir(self.real_path(path))
+        if force:
+            shutil.rmtree(self.real_path(path), ignore_errors=True)
+        else:
+            os.rmdir(self.real_path(path))
 
-        if remove_db:
+        if not nodb:
             # Then remove the document from the database
             self.doc_helper.delete(self[path])
 

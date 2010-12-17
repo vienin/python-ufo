@@ -44,17 +44,17 @@ class User(Debugger):
         self.groups             = None
         self.uidnumber          = None
         self.gidnumber          = None
-        
+
         self.followings         = {} # dic of FriendDocument objects {'login':object, ...}
         self.followers          = {} # dic of FriendDocument objects {'login':object, ...}
         self.pending_followings = {} # dic of FriendDocument objects {'login':object, ...}
         self.pending_followers  = {} # dic of FriendDocument objects {'login':object, ...}
         self.blocked_users      = {} # dic of FriendDocument objects {'login':object, ...}
-        
+
         self.user_name = user_name
         # to use the ticket forwarded by mod_kerb
         os.environ["KRB5CCNAME"]=meta['apache_env']['KRB5CCNAME']    
-        
+
         try:
             api.bootstrap(context='webservices', in_tree=False)
         except StandardError:
@@ -75,10 +75,6 @@ class User(Debugger):
             # this Exception can be ignored :
             # connect: 'context.xmlclient' already exists in thread 'MainThread'
             pass
-        
-        # Create the document helper, it is usefull to manipulate all 
-        # documents stored in the CouchDB database
-        self.friend_helper = DocumentHelper(FriendDocument, user_name)
 
     def initialize(self, args):
         """
@@ -86,8 +82,8 @@ class User(Debugger):
         passed in arguments 'args'. 
         We must at least give the following attributes :
         - first_name
-        - last_name 
-        - realm 
+        - last_name
+        - realm
 
         @param args: looks like :
         {'first_name'='my_first_name',
@@ -239,6 +235,10 @@ class User(Debugger):
             except KeyError:
                 self.street = None
 
+            # Create the document helper, it is usefull to manipulate all
+            # documents stored in the CouchDB database.
+            self.friend_helper = DocumentHelper(FriendDocument, self.user_name)
+
             self.followers = {}
             self.followings = {}
             self.pending_followers = {}
@@ -251,7 +251,7 @@ class User(Debugger):
 
             for friend_doc in self.friend_helper.by_status():
                 friends[friend_doc.status][friend_doc.login] = friend_doc
-      
+
             self.debug(("The user %s was populated.") % (self.user_name))
             return to_return
 
@@ -403,7 +403,10 @@ class User(Debugger):
             # check if the user is already a pending following or 
             # a blocked user. If it is, we raise an exception
             if new_pending_following in self.blocked_users.keys():
-                raise BlockedUserError(new_pending_following)
+                raise BlockedUserError()
+
+            elif new_pending_following in self.followings.keys():
+                raise AlreadyFollowingError()
 
             elif new_pending_following in self.pending_followings.keys():
                 raise PendingFollowingError()
@@ -419,12 +422,12 @@ class User(Debugger):
 
             self.pending_followings[unicode(new_pending_following)] = friend_doc
 
-        except Exception, e:
-            if isinstance(e, PrivateError):
-                self.debug("Raising exception: %s, %s" % (type(e), e))
-            else:
-                self.debug_exception()
+        except PrivateError, e:
+            self.debug("Raising exception: %s, %s" % (type(e), e))
+            raise
 
+        except Exception, e:
+            self.debug_exception()
             raise
 
         finally:
@@ -555,7 +558,7 @@ class User(Debugger):
             # check if the user is already a pending follower or 
             # a blocked user. If it is, we raise an exception
             if new_pending_follower in self.blocked_users.keys():
-                raise BlockedUserError(new_pending_follower)
+                raise BlockedUserError()
 
             elif new_pending_follower in self.pending_followers.keys():
                 raise PendingFollowerError()

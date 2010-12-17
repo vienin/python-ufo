@@ -105,7 +105,7 @@ class MySharesSyncDocument(SyncDocument):
             participant = utils.get_user_infos(uid=int(buddy))['login']
             for share in ShareDocument.by_provider_and_participant(database,
                                                                    key=[database.name, participant]):
-              for doc in cls.by_path(database, key=share.filepath):
+              for doc in cls.by_id(database, key=share.fileid):
                 yield doc
 
         else:

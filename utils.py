@@ -14,7 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-
+import os
 import time
 import krbV
 import pwd
@@ -25,6 +25,11 @@ import syslog
 import traceback
 
 from threading import RLock
+
+import exceptions
+from ufo import errors
+
+from ufo.debugger import Debugger
 
 
 class MutableStat(object):
@@ -173,3 +178,41 @@ def get_user_infos(login=None, uid=None):
              'fullname' : function(key).pw_gecos,
              'uid'      : function(key).pw_uid,
              'gid'      : function(key).pw_gid }
+
+def krb5principal(func):
+
+  def wrapper(*__args, **__kwargs):
+    _self = __args[0]
+    _meta = __args[1]
+
+    os.environ["KRB5CCNAME"] = _meta['apache_env'].get('KRB5CCNAME')
+    try:
+        principal = _meta['apache_env'].get('REMOTE_USER').split('@')[0]
+    except Exception, e:
+        principal = None
+
+    return func.__call__(_self, _meta, principal, *__args[2:], **__kwargs)
+
+  return wrapper
+
+def fault_to_exception(fault):
+    err = fault
+    try:
+        try:
+            exception_type, exception_message = fault.faultString.split("'>:")
+        except ValueError, e:
+            exception_type, exception_message = fault.faultString.split("'>,")
+
+        try:
+            exception_type = exception_type.split("<class '")[1].split(".")[-1]
+        except IndexError, e:
+            exception_type = exception_type.split("<type '")[1].split(".")[-1]
+
+        for module in (errors, exceptions):
+            if hasattr(module, exception_type):
+                err = getattr(module, exception_type).__call__(fault.faultCode, exception_message)
+
+    except Exception, e:
+        raise
+
+    return err

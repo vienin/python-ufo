@@ -16,7 +16,7 @@
 
 __version__ = (0, 0, 1)
 
-debug_mode = False
+debug_mode = True
 
 
 ##
@@ -35,10 +35,10 @@ nfsadmin_principal = 'nfsadmin@GAMMA.AGORABOX.ORG'
 ######################################################
 # address of the host providing the Storage Component
 # this variable is used by the Sync component
-storage_host = 'https://jerry.gamma.agorabox.org/xmlrpc'
+storage_host = u'https://jerry.gamma.agorabox.org/xmlrpc'
 
 # directory where shares can be finded 
-shares_dir = u"/mnt/nfs/shares/"
+fs_mount_point = u"/mnt/nfs/shares/"
 
 
 ######################################################
@@ -46,7 +46,7 @@ shares_dir = u"/mnt/nfs/shares/"
 ######################################################
 # address of the host providing the Storage Component
 # this variable is used by the Account component
-sync_host = 'https://jerry.gamma.agorabox.org/xmlrpc'
+sync_host = u'https://jerry.gamma.agorabox.org/xmlrpc'
 
 
 ######################################################
@@ -54,7 +54,7 @@ sync_host = 'https://jerry.gamma.agorabox.org/xmlrpc'
 ######################################################
 # address of the host providing the Account Component
 # this variable is used by the other components
-account_host = 'https://jerry.gamma.agorabox.org/xmlrpc'
+account_host = u'https://jerry.gamma.agorabox.org/xmlrpc'
 
 
 ######################################################

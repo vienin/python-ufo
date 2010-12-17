@@ -30,6 +30,29 @@ from couchdb.mapping import *
 couchdb_servers = {}
 
 
+class UTF8Document(Document):
+    def __init__(self, *args, **fields):
+        for field in fields:
+            if isinstance(fields[field], str):
+                fields[field] = fields[field].decode('utf-8')
+
+        super(UTF8Document, self).__init__(*args, **fields)
+
+    def __getattribute__(self, attr):
+      result = super(UTF8Document, self).__getattribute__(attr)
+
+      if isinstance(result, unicode):
+        return result.encode('utf-8')
+
+      return result
+
+    def __setattr__(self, attr, value):
+      if isinstance(value, str):
+        value = value.decode('utf-8')
+
+      super(UTF8Document, self).__setattr__(attr, value)
+
+
 class ChangesSequenceDocument(Document):
 
     doctype    = TextField(default="ChangesSequenceDocument")
@@ -94,7 +117,7 @@ class DocumentHelper(Debugger):
             changesfilters = ChangesFiltersDocument()
             changesfilters._data['_id'] = "_design/changes"
             changesfilters.store(self.database)
-            
+
         self.batchmode = batch
 
     def commit(self):
@@ -111,7 +134,8 @@ class DocumentHelper(Debugger):
                    % (self, doc.doctype, doc.id, str(self.batchmode)))
 
         opts = {}
-        if self.batchmode:
+        # Can't get the new generated _rev number when batch mode...
+        if False and self.batchmode:
           opts['batch'] = 'ok'
 
         doc._data['_id'], doc._data['_rev'] = self.database.save(doc._data, **opts)

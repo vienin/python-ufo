@@ -21,8 +21,9 @@ import socket
 from uuid import uuid4
 
 from debugger import Debugger
+from errors import ConflictError
 
-from couchdb.http import ResourceNotFound
+from couchdb.http import ResourceNotFound, ResourceConflict
 from couchdb.client import Server
 from couchdb.design import ViewDefinition
 from couchdb.mapping import *
@@ -126,9 +127,12 @@ class DocumentHelper(Debugger):
       self.database.commit()
 
     def create(self, **fields):
-        # Generate _id UUID on the client side
         doc = self.doc_class(**fields)
-        doc._data['_id'] = uuid4().hex
+
+        if fields.has_key('_id'):
+            doc._data['_id'] = fields['_id']
+        else:
+            doc._data['_id'] = uuid4().hex
 
         self.debug("%s: Creating %s:%s (batch=%s)"
                    % (self, doc.doctype, doc.id, str(self.batchmode)))
@@ -136,9 +140,14 @@ class DocumentHelper(Debugger):
         opts = {}
         # Can't get the new generated _rev number when batch mode...
         if False and self.batchmode:
-          opts['batch'] = 'ok'
+            opts['batch'] = 'ok'
 
-        doc._data['_id'], doc._data['_rev'] = self.database.save(doc._data, **opts)
+        try:
+            doc._data['_id'], doc._data['_rev'] = self.database.save(doc._data, **opts)
+
+        except ResourceConflict, e:
+            raise ConflictError
+
         return doc
 
     def update(self, documents):

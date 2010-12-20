@@ -63,6 +63,11 @@ class ShareDocument(Document):
     flags       = TextField()
 
     @ViewField.define('share')
+    def by_fileid(doc):
+        if doc['doctype'] == 'ShareDocument':
+            yield doc['fileid'], doc
+
+    @ViewField.define('share')
     def by_provider_and_fileid(doc):
         if doc['doctype'] == 'ShareDocument':
             yield [doc['provider'], doc['fileid']], doc

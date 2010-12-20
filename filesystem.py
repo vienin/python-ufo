@@ -65,7 +65,10 @@ class SyncDocument(UTF8Document):
   
     def set_stats(self, stat_result):
         for field in self.stats._fields.keys():
-            setattr(self.stats, field, getattr(stat_result, field))
+            if isinstance(stat_result, dict):
+                self.stats[field] = stat_result[field]
+            else:
+                self.stats[field] = getattr(stat_result, field)
   
     def get_stats(self):
         stat_result = MutableStat()

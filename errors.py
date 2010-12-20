@@ -65,21 +65,9 @@ class BadComponentPerms(PrivateError):
     format = 'Component permissions incorrect'
 
 
-
-########################################################################
-# Share documents errors
-########################################################################
-"""
-    =============  ========================================
-     Error codes                 Exceptions
-    =============  ========================================
-    6001 - 6019    `ShareDocError` : Friendship Errors
-    6020 - 6039    `ShareDocError` : File Sharing Errors
-"""
-
 ########################################################################
 # Friendship Errors
-
+########################################################################
 class BadFriendshipStatus(PrivateError):
     """
     **6001** Raised when a bad friendship status is provided.
@@ -191,7 +179,7 @@ class BlockedUserError(PrivateError):
 
 ########################################################################
 # File Sharing Errors
-
+########################################################################
 class AlreadySharedDocError(PrivateError):
     """
     **6020** Raised when a user attempts to share an already shared document
@@ -211,6 +199,11 @@ class AlreadySharedDocError(PrivateError):
 class BadOwnerError(PrivateError):
     errno = 6021
     format = 'User not the owner of the file'
+
+
+class ConflictError(PrivateError):
+    errno = 6022
+    format = 'Document update conflict.'
 
 
 ########################################################################

@@ -18,50 +18,77 @@ __version__ = (0, 0, 1)
 
 debug_mode = True
 
+from ipalib.config import Env
+from ufo.debugger import Debugger
+# On charge l'environnement d'IPA
+deb = Debugger()
+deb._setName("config.py")
+env = Env()
+env._bootstrap()
+env._finalize_core()
 
-##
-# Used if Storage component is installed
-##
+try:
 
-# Only member of this group can call the Storage component procedures 
-storage_admins_group = 'ufoadmins'
-# the root principal on the nfs server. See also the idmapd.conf 
-# your server
-nfsadmin_principal = 'nfsadmin@GAMMA.AGORABOX.ORG'
-
-
-######################################################
-# Storage
-######################################################
-# address of the host providing the Storage Component
-# this variable is used by the Sync component
-storage_host = u'https://jerry.gamma.agorabox.org/xmlrpc'
-
-# directory where shares can be finded 
-fs_mount_point = u"/mnt/nfs/shares/"
+    server = ""
 
 
-######################################################
-# Sync
-######################################################
-# address of the host providing the Storage Component
-# this variable is used by the Account component
-sync_host = u'https://jerry.gamma.agorabox.org/xmlrpc'
+    ufo_in_server = env.host in env.xmlrpc_uri
+
+    if ufo_in_server:
+        server = env.host.encode()
+    else:
+        server = env.server.encode()
+
+    ##
+    # Used if Storage component is installed
+    ##
+    realm = env.realm.encode()
+
+    # Only member of this group can call the Storage component procedures
+    storage_admins_group = 'ufoadmins'
+    # the root principal on the nfs server. See also the idmapd.conf
+    # your server
+    nfsadmin_principal = 'nfsadmin@%s' % env.realm.encode()
 
 
-######################################################
-# Account
-######################################################
-# address of the host providing the Account Component
-# this variable is used by the other components
-account_host = u'https://jerry.gamma.agorabox.org/xmlrpc'
+    ######################################################
+    # Storage
+    ######################################################
+    # address of the host providing the Storage Component
+    # this variable is used by the Sync component
+    storage_host = 'https://%s/xmlrpc' % env.server
+
+    # directory where shares can be finded 
+    shares_dir = u"/mnt/nfs/shares/"
 
 
-######################################################
-# Messaging
-######################################################
-# address and port of the host providing the AMQP
-# this variable is used by the other components
-messaging_host = 'tom.gamma.agorabox.org'
-messaging_port = '5672'
+    ######################################################
+    # Sync
+    ######################################################
+    # address of the host providing the Storage Component
+    # this variable is used by the Account component
+    sync_host = 'https://%s/xmlrpc' % env.server
 
+
+    ######################################################
+    # Account
+    ######################################################
+    # address of the host providing the Account Component
+    # this variable is used by the other components
+    account_host = 'https://%s/xmlrpc' % env.server
+
+
+    ######################################################
+    # Messaging
+    ######################################################
+    # address and port of the host providing the AMQP
+    # this variable is used by the other components
+    messaging_host = 'tom.gamma.agorabox.org'
+    messaging_port = '5672'
+
+except AttributeError:
+    # seems that config file doesn't contains
+    # xmlrpc_uri 
+    deb.debug("Seems we're not on a functional ipa host, maybe you should run ipa-client-install first")
+    # Re raise the exception as we don't know what to do
+    raise

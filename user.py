@@ -24,6 +24,7 @@ from ufo.debugger import Debugger
 from ufo.database import DocumentHelper
 from ufo.sharing import FriendDocument
 from ufo.constants import FriendshipStatus, Notification
+from ufo.config import ufo_in_server
 
 
 class User(Debugger):
@@ -56,7 +57,7 @@ class User(Debugger):
         os.environ["KRB5CCNAME"]=meta['apache_env']['KRB5CCNAME']    
 
         try:
-            api.bootstrap(context='webservices', in_tree=False)
+            api.bootstrap(context='webservices', in_tree=False, in_server=ufo_in_server)
         except StandardError:
             # the following exceptions can be ignored. That's no problem
             # API.bootstrap() already called
@@ -69,12 +70,22 @@ class User(Debugger):
             # API.finalize() already called
             pass
 
-        try:
-            api.Backend.xmlclient.connect()
-        except StandardError:
-            # this Exception can be ignored :
-            # connect: 'context.xmlclient' already exists in thread 'MainThread'
-            pass
+        if ufo_in_server:
+            try:
+                api.Backend.ldap2.connect(ccache=api.Backend.krb.default_ccname())
+            except StandardError:
+                # this Exception can be ignored :
+                # connect: 'context.xmlclient' already exists in thread 'MainThread'
+                pass
+        else:
+            try:
+                api.Backend.xmlclient.connect()
+            except StandardError:
+                # this Exception can be ignored :
+                # connect: 'context.xmlclient' already exists in thread 'MainThread'
+                pass
+
+        
 
     def initialize(self, args):
         """

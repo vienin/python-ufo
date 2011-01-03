@@ -16,13 +16,11 @@
 
 __version__ = (0, 0, 1)
 
-debug_mode = True
+debug_mode = False
 
 from ipalib.config import Env
-from ufo.debugger import Debugger
-# On charge l'environnement d'IPA
-deb = Debugger()
-deb._setName("config.py")
+
+# Loading IPA environement
 env = Env()
 env._bootstrap()
 env._finalize_core()
@@ -86,9 +84,10 @@ try:
     messaging_host = 'tom.gamma.agorabox.org'
     messaging_port = '5672'
 
-except AttributeError:
-    # seems that config file doesn't contains
-    # xmlrpc_uri 
-    deb.debug("Seems we're not on a functional ipa host, maybe you should run ipa-client-install first")
+except AttributeError, e:
+    # seems that config file doesn't contains xmlrpc_uri
+    import syslog
+    syslog.syslog(syslog.LOG_WARNING,
+                  "Seems we're not on a functional ipa host, maybe you should run ipa-client-install first")
     # Re raise the exception as we don't know what to do
     raise

@@ -87,14 +87,16 @@ class DocumentHelper(Debugger):
 
     batchmode = False
 
-    def __init__(self, doc_class, db_name, db_uri="localhost", db_port=5984, batch=False):
+    def __init__(self, doc_class, db_name, db_uri="localhost", db_port=5984, spnego=False, batch=False):
+        serverurl = { True  : "spnego://HTTP@%s" % db_uri,
+                      False : "http://%s:%s" % (db_uri, str(db_port)) }[spnego]
 
         try:
             # Creating server object
-            if not couchdb_servers.has_key(db_uri):
-                couchdb_servers[db_uri] = Server("http://" + db_uri + ":" + str(db_port))
+            if not couchdb_servers.has_key(serverurl):
+                couchdb_servers[serverurl] = Server(serverurl)
 
-            self.server = couchdb_servers[db_uri]
+            self.server = couchdb_servers[serverurl]
 
             # Creating database if needed
             if db_name not in self.server:
@@ -182,7 +184,10 @@ class DocumentHelper(Debugger):
         opts["type"] = self.doc_class.__name__
         return self.database.changes(**opts)
 
-    def replicate(self, dest, reverse=False, **opts):
+    def replicate(self, db_name, db_uri="localhost", db_port=5984, spnego=False, reverse=False, **opts):
+        dest = { True  : "spnego://HTTP@%s/%s" % (db_uri, db_name),
+                 False : "http://%s:%s/%s" % (db_uri, str(db_port), db_name) }[spnego]
+
         if reverse:
           src  = dest
           dest = self.database.name

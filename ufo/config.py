@@ -54,7 +54,7 @@ try:
     ######################################################
     # address of the host providing the Storage Component
     # this variable is used by the Sync component
-    storage_host = 'https://%s/xmlrpc' % env.server
+    storage_host = 'https://%s/xmlrpc' % server
 
     # directory where shares can be finded 
     shares_dir = u"/mnt/nfs/shares/"
@@ -65,7 +65,7 @@ try:
     ######################################################
     # address of the host providing the Storage Component
     # this variable is used by the Account component
-    sync_host = 'https://%s/xmlrpc' % env.server
+    sync_host = 'https://%s/xmlrpc' % server
 
 
     ######################################################
@@ -73,7 +73,7 @@ try:
     ######################################################
     # address of the host providing the Account Component
     # this variable is used by the other components
-    account_host = 'https://%s/xmlrpc' % env.server
+    account_host = 'https://%s/xmlrpc' % server
 
 
     ######################################################

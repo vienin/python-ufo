@@ -238,7 +238,7 @@ class CouchedFileSystem(Debugger):
 
     doc_helper = None
 
-    def __init__(self, mount_point, db_name, db_uri="localhost", db_port=5984, db_metadatas=False):
+    def __init__(self, mount_point, db_name, db_uri="localhost", db_port=5984, spnego=False, db_metadatas=False):
         self.mount_point = mount_point
         self.db_metadatas = db_metadatas
 
@@ -246,7 +246,7 @@ class CouchedFileSystem(Debugger):
         os.lstat(self.mount_point)
 
         # Instantiate couchdb document helper
-        self.doc_helper = DocumentHelper(SyncDocument, db_name, db_uri, db_port, batch=False)
+        self.doc_helper = DocumentHelper(SyncDocument, db_name, db_uri, db_port, spnego, batch=False)
 
     def mkdir(self, path, mode, uid=None, gid=None):
         '''

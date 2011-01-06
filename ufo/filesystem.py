@@ -217,6 +217,9 @@ class CouchedFile(Debugger):
     def __getattr__(self, attr):
       return getattr(self.file_ptr, attr)
 
+    def __del__(self):
+      self.close()
+
 
 class CouchedFileSystem(Debugger):
     '''

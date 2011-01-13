@@ -45,6 +45,7 @@ class User(Debugger):
         self.groups             = None
         self.uidnumber          = None
         self.gidnumber          = None
+        self.quota              = None
 
         self.followings         = {} # dic of FriendDocument objects {'login':object, ...}
         self.followers          = {} # dic of FriendDocument objects {'login':object, ...}
@@ -220,7 +221,7 @@ class User(Debugger):
             self.last_name      = response['result']['sn'][0]
             self.home_directory = response['result']['homedirectory'][0]
             self.login_shell    = response['result']['loginshell'][0]
-            self.groups         = response['result']['memberof_group']
+            self.groups         = response['result'].get('memberof_group', [])
             self.uidnumber      = int(response['result']['uidnumber'][0])
             self.gidnumber      = int(response['result']['gidnumber'][0])
             self.realm          = response["result"]["krbprincipalname"][0].split('@')[1]
@@ -304,6 +305,12 @@ class User(Debugger):
 
         if (self.home_directory != None):
             other_args['homedirectory'] = self.home_directory
+
+        if (self.user_password != None):
+            other_args['userpassword'] = self.user_password
+
+        if (self.quota != None):
+            other_args['setattr'] = u"quota=%s" % self.quota
 
         try:
             api.Command.user_add(unicode(self.user_name), **other_args)

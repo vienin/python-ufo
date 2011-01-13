@@ -144,6 +144,10 @@ class SyncDocument(UTF8Document):
     def __repr__(self):
         return str(self)
 
+    @property
+    def path(self):
+        return os.path.join(self.dirpath, self.filename)
+
 
 class CouchedFile(Debugger):
 

@@ -59,12 +59,16 @@ class SortedByTypeSyncDocument(SyncDocument):
                 start = []
 
             end = start + [{}]
+            dirpath = "/" + "/".join(start)
             for row in cls.sorted_by_type(database,
                                           startkey=start,
                                           endkey=end,
                                           group_level=len(start) + 1):
 
-                yield cls(filename=row['key'][len(start)], mode=0555 | stat.S_IFDIR)
+                yield cls(filename=row['key'][len(start)],
+                          dirpath=dirpath,
+                          mode=0555 | stat.S_IFDIR,
+                          type="application/x-directory")
 
 
 class BuddySharesSyncDocument(SyncDocument):
@@ -88,9 +92,11 @@ class BuddySharesSyncDocument(SyncDocument):
                 # Retrieve provider infos from gss api
                 infos = utils.get_user_infos(row['key'])
                 yield cls(filename=infos['fullname'],
+                          dirpath=os.sep,
                           mode=0555 | stat.S_IFDIR,
                           uid=infos['uid'],
-                          gid=infos['gid'])
+                          gid=infos['gid'],
+                          type="application/x-directory")
 
 
 class MySharesSyncDocument(SyncDocument):
@@ -116,9 +122,11 @@ class MySharesSyncDocument(SyncDocument):
                 # Retrieve participant infos from gss api
                 infos = utils.get_user_infos(row['key'])
                 yield cls(filename=infos['fullname'],
+                          dirpath=os.sep,
                           mode=0555 | stat.S_IFDIR,
                           uid=infos['uid'],
-                          gid=infos['gid'])
+                          gid=infos['gid'],
+                          type="application/x-directory")
 
 
 class TaggedSyncDocument(SyncDocument):
@@ -137,5 +145,8 @@ class TaggedSyncDocument(SyncDocument):
 
         else:
             for row in cls.sorted_by_tag(database, group=True):
-                yield cls(filename=row['key'], mode=0555 | stat.S_IFDIR)
+                yield cls(filename=row['key'],
+                          dirpath=os.sep,
+                          mode=0555 | stat.S_IFDIR,
+                          type="application/x-directory")
 

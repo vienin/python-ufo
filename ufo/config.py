@@ -75,14 +75,17 @@ try:
     # this variable is used by the other components
     account_host = 'https://%s/xmlrpc' % server
 
+    ######################################################
+    # CouchDB
+    ######################################################
+    couchdb_host = server
+    couchdb_port = 5984
 
     ######################################################
-    # Messaging
+    # Sync Spawner
     ######################################################
-    # address and port of the host providing the AMQP
-    # this variable is used by the other components
-    messaging_host = 'tom.gamma.agorabox.org'
-    messaging_port = '5672'
+    sync_spawner_port = 5000
+    sync_spawner_authkey = "jk28jsdf_39!39FksFd"
 
 except AttributeError, e:
     # seems that config file doesn't contains xmlrpc_uri

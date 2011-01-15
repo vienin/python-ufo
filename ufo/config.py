@@ -57,8 +57,10 @@ try:
     storage_host = 'https://%s/xmlrpc' % server
 
     # directory where shares can be finded 
-    shares_dir = u"/mnt/nfs/shares/"
+    fs_mount_point = u"/mnt/nfs/shares/"
 
+    # the admin nfs keytab
+    nfs_admin_keytab = '/etc/httpd/conf/nfs.keytab'
 
     ######################################################
     # Sync

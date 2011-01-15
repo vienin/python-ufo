@@ -282,10 +282,11 @@ class CouchedFileSystem(Debugger):
         updated.append(self.doc_helper.create(**fields))
 
         # Finally update the stats of the parent directory into the database
-        parent = self[os.path.dirname(path)]
-        parent.set_stats(os.lstat(os.path.dirname(self.real_path(path))))
+        if os.path.dirname(path) != os.sep:
+            parent = self[os.path.dirname(path)]
+            parent.set_stats(os.lstat(os.path.dirname(self.real_path(path))))
 
-        updated.extend(self.doc_helper.update(parent))
+            updated.extend(self.doc_helper.update(parent))
         
         return updated
 

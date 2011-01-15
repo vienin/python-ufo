@@ -15,6 +15,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import os
+import sys
 import time
 import krbV
 import pwd
@@ -24,13 +25,16 @@ import random
 import syslog
 import traceback
 
+import xmlrpclib as rpc
+from ipalib.rpc import KerbTransport
+
 from threading import RLock
 
 import exceptions
 from ufo import errors
 
 from ufo.debugger import Debugger
-
+from ufo import config
 
 class MutableStat(object):
     '''
@@ -127,6 +131,35 @@ class CacheDict(dict):
     self._accesslock.release()
 
 
+class CallProxy(object):
+    def __init__(self, func, meta):
+        self.func = func
+        self.meta = meta
+
+    def __call__(self, *args, **kw):
+        self.func(self.meta, *args, **kw)
+
+
+class ComponentProxy(object):
+    def __init__(self, component, meta, host, transport=None):
+        self.meta = meta
+        if not config.ufo_in_server:
+            if not transport:
+                transport = KerbTransport()
+            self.server = rpc.Server(host, transport)
+            self.component = getattr(self.server, component.__name__.lower())
+        else:
+            mod_name, klass_name = get_mod_func(component)
+            klass = getattr(import_module(mod_name), klass_name)
+            self.component = klass()
+
+    def __getattr__(self, name):
+        if config.ufo_in_server:
+            return CallProxy(getattr(self.component, name), self.meta)
+        else:
+            return getattr(self.component, name) 
+
+
 def random_string(dir=None):
     ''' 
     Returns a random string with 10 chars 
@@ -216,3 +249,45 @@ def fault_to_exception(fault):
         raise
 
     return err
+
+# Those functions were taken from the Django framework
+def _resolve_name(name, package, level):
+    """Return the absolute name of the module to be imported."""
+    if not hasattr(package, 'rindex'):
+        raise ValueError("'package' not set to a string")
+    dot = len(package)
+    for x in xrange(level, 1, -1):
+        try:
+            dot = package.rindex('.', 0, dot)
+        except ValueError:
+            raise ValueError("attempted relative import beyond top-level "
+                              "package")
+    return "%s.%s" % (package[:dot], name)
+
+def import_module(name, package=None):
+    """Import a module.
+
+    The 'package' argument is required when performing a relative import. It
+    specifies the package to use as the anchor point from which to resolve the
+    relative import to an absolute import.
+
+    """
+    if name.startswith('.'):
+        if not package:
+            raise TypeError("relative imports require the 'package' argument")
+        level = 0
+        for character in name:
+            if character != '.':
+                break
+            level += 1
+        name = _resolve_name(name[level:], package, level)
+    __import__(name)
+    return sys.modules[name]
+
+def get_mod_func(callback):
+    try:
+        dot = callback.rindex('.')
+    except ValueError:
+        return callback, ''
+    return callback[:dot], callback[dot+1:]
+

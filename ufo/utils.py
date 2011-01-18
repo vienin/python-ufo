@@ -137,7 +137,7 @@ class CallProxy(object):
         self.meta = meta
 
     def __call__(self, *args, **kw):
-        self.func(self.meta, *args, **kw)
+        return self.func(self.meta, *args, **kw)
 
 
 class ComponentProxy(object):

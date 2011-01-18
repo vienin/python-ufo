@@ -405,6 +405,14 @@ class User(Debugger):
 
             raise
 
+    def get_picture(self):
+        response = api.Command.user_show(unicode(self.user_name), all=True, raw=True)
+        return response['result']['jpegphoto'][0]
+
+    def set_picture(self, picture):
+        ipa_kw = { "setattr" : u"jpegphoto=" + picture }
+        api.Command.user_mod(unicode(self.user_name), all=True, raw=True, **ipa_kw)
+
     def add_pending_following(self, new_pending_following, notify=True):
         """
         add a new friend to the pending followings list of the current user.

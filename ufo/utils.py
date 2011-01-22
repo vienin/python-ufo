@@ -222,7 +222,7 @@ def krb5principal(func):
     try:
         principal = _meta['apache_env'].get('REMOTE_USER').split('@')[0]
     except Exception, e:
-        principal = None
+        principal = get_current_principal(_meta['apache_env'].get('KRB5CCNAME')).split('@')[0]
 
     return func.__call__(_self, _meta, principal, *__args[2:], **__kwargs)
 

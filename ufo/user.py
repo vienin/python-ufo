@@ -407,7 +407,10 @@ class User(Debugger):
 
     def get_picture(self):
         response = api.Command.user_show(unicode(self.user_name), all=True, raw=True)
-        return response['result']['jpegphoto'][0]
+        try:
+            return response['result']['jpegphoto'][0]
+        except:
+            return ""
 
     def set_picture(self, picture):
         ipa_kw = { "setattr" : u"jpegphoto=" + picture }

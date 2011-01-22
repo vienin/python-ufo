@@ -16,7 +16,7 @@
 
 __version__ = (0, 0, 1)
 
-debug_mode = False
+debug_mode = True
 
 from ipalib.config import Env
 
@@ -44,6 +44,7 @@ try:
 
     # Only member of this group can call the Storage component procedures
     storage_admins_group = 'ufoadmins'
+
     # the root principal on the nfs server. See also the idmapd.conf
     # your server
     nfsadmin_principal = 'nfsadmin@%s' % env.realm.encode()
@@ -88,6 +89,13 @@ try:
     ######################################################
     sync_spawner_port = 5000
     sync_spawner_authkey = "jk28jsdf_39!39FksFd"
+
+    ######################################################
+    # Quota daemon
+    ######################################################
+    quota_daemon_port = 20000
+    quota_daemon_authkey = "kjsdn,,2378(,sdfljs!"
+    nfs_export = "/"
 
 except AttributeError, e:
     # seems that config file doesn't contains xmlrpc_uri

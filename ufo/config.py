@@ -69,7 +69,8 @@ try:
     # address of the host providing the Storage Component
     # this variable is used by the Account component
     sync_host = 'https://%s/xmlrpc' % server
-
+    sync_public_user = 'public'
+    sync_public_user_keytab = '/etc/httpd/conf/public.keytab'
 
     ######################################################
     # Account

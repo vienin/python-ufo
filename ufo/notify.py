@@ -17,6 +17,7 @@
 import utils
 import config
 import os
+from datetime import datetime
 
 import xmlrpclib as rpc
 from ipalib.rpc import KerbTransport
@@ -41,6 +42,7 @@ class NotificationDocument(Document, Debugger):
     body    = TextField(default="")
     summary = TextField(default="")
     actions = DictField()
+    date    = DateTimeField(default=datetime.now)
 
     def __init__(self):
         super(NotificationDocument, self).__init__()

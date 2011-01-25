@@ -264,7 +264,7 @@ class CouchedFileSystem(Debugger):
         updated = []
 
         # Firstly make the directory on the filesystem
-        os.mkdir(self.real_path(path), 0755)
+        os.mkdir(self.real_path(path), mode)
 
         # Then create the document into the database
         stats = os.lstat(self.real_path(path))

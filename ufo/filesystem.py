@@ -173,7 +173,13 @@ class CouchedFile(Debugger):
                      % (path, self.filesystem.real_path(path), e.message))
           raise
 
-        if flags & os.O_CREAT:
+        try:
+            self.filesystem[path]
+            exists = True
+        except Exception, e:
+            exists = False
+
+        if flags & os.O_CREAT and not exists:
             self.debug("Creating document %s in database from file %s"
                        % (path, self.filesystem.real_path(path)))
 

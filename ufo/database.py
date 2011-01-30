@@ -18,6 +18,7 @@
 
 import os
 import socket
+import kerberos as k
 from uuid import uuid4
 
 from debugger import Debugger
@@ -185,20 +186,26 @@ class DocumentHelper(Debugger):
         return self.database.changes(**opts)
 
     def replicate(self, db_name, db_uri="localhost", db_port=5984, spnego=False, reverse=False, **opts):
-        dest = { True  : "spnego://HTTP@%s/%s" % (db_uri, db_name),
-                 False : "http://%s:%s/%s" % (db_uri, str(db_port), db_name) }[spnego]
+        dest = "https://%s:%s/%s" % (db_uri, str(db_port), db_name)
+
+        if spnego:
+            result, self.context = k.authGSSClientInit("HTTP@%s" % db_uri)
+            result = k.authGSSClientStep(self.context, "")
+            response = k.authGSSClientResponse(self.context)
+            dest = { "url" : dest,
+                     "headers" : { "Authorization" : "Negotiate %s" % response } }
 
         if reverse:
-          src  = dest
-          dest = self.database.name
+            src  = dest
+            dest = self.database.name
         else:
-          src = self.database.name
+            src = self.database.name
 
         try:
-          self.server.replicate(src, dest, **opts)
+            self.server.replicate(src, dest, **opts)
         except ResourceNotFound, e:
-          raise DocumentException("Can not replicate %s to %s (%s)" %
-                                  (src, dest, e.message))
+            raise DocumentException("Can not replicate %s to %s (%s)" %
+                                    (src, dest, e.message))
 
     def _pk_view(self, view, **opts):
         try:

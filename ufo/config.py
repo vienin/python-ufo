@@ -103,5 +103,3 @@ except AttributeError, e:
     import syslog
     syslog.syslog(syslog.LOG_WARNING,
                   "Seems we're not on a functional ipa host, maybe you should run ipa-client-install first")
-    # Re raise the exception as we don't know what to do
-    raise

@@ -261,6 +261,16 @@ class CouchedFileSystem(Debugger):
         # Instantiate couchdb document helper
         self.doc_helper = DocumentHelper(SyncDocument, db_name, db_uri, db_port, spnego, batch=False)
 
+    def makedirs(self, path, mode, uid=None, gid=None):
+        p = ""
+        dirs = path.split(os.sep)[1:]
+        for d in dirs:
+            p += os.sep + d
+            try:
+                self[p]
+            except OSError, e:
+                self.mkdir(p, mode, uid, gid)
+
     def mkdir(self, path, mode, uid=None, gid=None):
         '''
         Call type : "Create"

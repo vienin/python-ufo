@@ -467,6 +467,7 @@ class CouchedFileSystem(Debugger):
         Call type : "Read"
         '''
 
+        path = os.path.normpath(path)
         for doc in self.doc_helper.by_dir(key=path):
             yield doc
 

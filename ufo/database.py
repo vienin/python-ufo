@@ -20,6 +20,7 @@ import os
 import socket
 import kerberos as k
 from uuid import uuid4
+from urlparse import urlsplit
 
 from debugger import Debugger
 from errors import ConflictError
@@ -88,16 +89,13 @@ class DocumentHelper(Debugger):
 
     batchmode = False
 
-    def __init__(self, doc_class, db_name, db_uri="localhost", db_port=5984, spnego=False, batch=False):
-        serverurl = { True  : "spnego://HTTP@%s" % db_uri,
-                      False : "http://%s:%s" % (db_uri, str(db_port)) }[spnego]
-
+    def __init__(self, doc_class, db_name, server="http://localhost:5984", spnego=False, batch=False):
         try:
             # Creating server object
-            if not couchdb_servers.has_key(serverurl):
-                couchdb_servers[serverurl] = Server(serverurl)
+            if not couchdb_servers.has_key(server):
+                couchdb_servers[server] = Server(server, spnego=spnego)
 
-            self.server = couchdb_servers[serverurl]
+            self.server = couchdb_servers[server]
 
             # Creating database if needed
             if db_name not in self.server:
@@ -106,8 +104,8 @@ class DocumentHelper(Debugger):
                 self.database = self.server[db_name]
 
         except socket.error, e:
-            raise DocumentException("Unable to create database '%s' on %s:%s (%s)"
-                                    % (db_name, db_uri, str(db_port), e.message))
+            raise DocumentException("Unable to create database '%s' on %s (%s)"
+                                    % (db_name, server, e.message))
 
         # Synchronizing all couchdb views of the document class
         self.doc_class = doc_class
@@ -185,14 +183,13 @@ class DocumentHelper(Debugger):
         opts["type"] = self.doc_class.__name__
         return self.database.changes(**opts)
 
-    def replicate(self, db_name, db_uri="localhost", db_port=5984, spnego=False, reverse=False, **opts):
-        dest = "https://%s:%s/%s" % (db_uri, str(db_port), db_name)
-
+    def replicate(self, db_name, server="http://localhost:5984", spnego=False, reverse=False, **opts):
         if spnego:
+            db_uri = urlsplit(server).hostname
             result, self.context = k.authGSSClientInit("HTTP@%s" % db_uri)
             result = k.authGSSClientStep(self.context, "")
             response = k.authGSSClientResponse(self.context)
-            dest = { "url" : dest,
+            dest = { "url" : server + "/" + db_name,
                      "headers" : { "Authorization" : "Negotiate %s" % response } }
 
         if reverse:

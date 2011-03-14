@@ -26,6 +26,15 @@ from utils import MutableStat, MimeType
 from debugger import Debugger
 from database import *
 
+def normpath(func):
+    def handler(self, path, *args, **kw):
+        return func(self, os.path.normpath(path), *args, **kw)
+    return handler
+
+def norm2path(func):
+    def handler(self, path, path2, *args, **kw):
+        return func(self, os.path.normpath(path), os.path.normpath(path2), *args, **kw)
+    return handler
 
 class SyncDocument(UTF8Document):
 
@@ -156,6 +165,7 @@ class CouchedFile(Debugger):
     document = None
     filesystem = None
 
+    @normpath
     def __init__(self, path, flags, uid, gid, mode, filesystem):
         self.filesystem = filesystem
         self.flags = flags
@@ -261,6 +271,7 @@ class CouchedFileSystem(Debugger):
         # Instantiate couchdb document helper
         self.doc_helper = DocumentHelper(SyncDocument, db_name, server, spnego, batch=False)
 
+    @normpath
     def makedirs(self, path, mode, uid=None, gid=None):
         p = ""
         dirs = path.split(os.sep)[1:]
@@ -271,6 +282,7 @@ class CouchedFileSystem(Debugger):
             except OSError, e:
                 self.mkdir(p, mode, uid, gid)
 
+    @normpath
     def mkdir(self, path, mode, uid=None, gid=None):
         '''
         Call type : "Create"
@@ -306,6 +318,7 @@ class CouchedFileSystem(Debugger):
         
         return updated
 
+    @norm2path
     def symlink(self, dest, symlink, uid=None, gid=None):
         '''
         Call type : "Create"
@@ -340,6 +353,7 @@ class CouchedFileSystem(Debugger):
 
         return updated
 
+    @normpath
     def chmod(self, path, mode):
         '''
         Call type : "Update"
@@ -355,6 +369,7 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(document)
 
+    @normpath
     def chown(self, path, uid, gid):
         '''
         Call type : "Update"
@@ -371,6 +386,7 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(document)
 
+    @normpath
     def tag(self, path, tag, remove=False):
         '''
         Call type : "Update"
@@ -385,6 +401,7 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(document)
 
+    @normpath
     def utime(self, path, times):
         '''
         Call type : "Update"
@@ -403,6 +420,7 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(document)
 
+    @norm2path
     def rename(self, old, new):
         '''
         Call type : "Update"
@@ -428,6 +446,7 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(documents)
 
+    @normpath
     def unlink(self, path, nodb=False):
         '''
         Call type : "Update"
@@ -440,6 +459,7 @@ class CouchedFileSystem(Debugger):
             # Then remove the document from the database
             self.doc_helper.delete(self[path])
 
+    @normpath
     def rmdir(self, path, nodb=False, force=False):
         '''
         Call type : "Update"
@@ -455,6 +475,7 @@ class CouchedFileSystem(Debugger):
             # Then remove the document from the database
             self.doc_helper.delete(self[path])
 
+    @normpath
     def stat(self, path):
         '''
         Call type : "Read"
@@ -462,6 +483,7 @@ class CouchedFileSystem(Debugger):
 
         return self[path].get_stats()
 
+    @normpath
     def listdir(self, path):
         '''
         Call type : "Read"
@@ -471,9 +493,11 @@ class CouchedFileSystem(Debugger):
         for doc in self.doc_helper.by_dir(key=path):
             yield doc
 
+    @normpath
     def open(self, path, flags, uid=None, gid=None, mode=None):
         return CouchedFile(path, flags, uid, gid, mode, self)
 
+    @normpath
     def populate(self, path):
         '''
         Call type : "Create"
@@ -513,6 +537,7 @@ class CouchedFileSystem(Debugger):
       
         return result
 
+    @normpath
     def _get(self, path):
       try:
         return self.doc_helper.by_path(key=path, pk=True)

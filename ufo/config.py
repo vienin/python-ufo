@@ -93,7 +93,7 @@ try:
     ######################################################
     # Quota daemon
     ######################################################
-    quota_daemon_principal = "quota/%s@%s" % (server, realm)
+    quota_daemon_principal = "HTTP/%s@%s" % (server, realm)
     quota_daemon_port = 20000
     quota_daemon_authkey = "kjsdn,,2378(,sdfljs!"
     nfs_export = "/"

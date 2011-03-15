@@ -86,8 +86,6 @@ class NewFriendshipNotification(NotificationDocument):
         meta = { "apache_env" : { "KRB5CCNAME" : os.environ["KRB5CCNAME"] } }
         remote_account = ComponentProxy("ufoaccount.account.Account", meta, config.sync_host)
         remote_account.accept_following(self.following)
-        # rpc.Server(config.account_host, KerbTransport())
-        # account_remote.account.accept_following(self.following)
 
     def refuse_invitation(self):
         self.debug("Refusing the friend invitation from '%s' to '%s'"
@@ -97,9 +95,6 @@ class NewFriendshipNotification(NotificationDocument):
         remote_account = ComponentProxy("ufoaccount.account.Account", meta, config.sync_host)
         remote_account.refuse_following(self.following)
 
-        #account_remote = rpc.Server(config.account_host, KerbTransport())
-        #account_remote.account.refuse_following(self.following)
-
     def block_invitation(self):
         self.debug("Blocking the friend invitation from '%s' to '%s'"
                    % (self.following, self.follower))
@@ -107,9 +102,6 @@ class NewFriendshipNotification(NotificationDocument):
         meta = { "apache_env" : { "KRB5CCNAME" : os.environ["KRB5CCNAME"] } }
         remote_account = ComponentProxy("ufoaccount.account.Account", meta, config.sync_host)
         remote_account.block_user(self.following)
-
-        #account_remote = rpc.Server(config.account_host, KerbTransport())
-        #account_remote.account.block_user(self.following)
 
 
 class AcceptedFriendshipNotification(NotificationDocument):
@@ -143,9 +135,6 @@ class AcceptedFriendshipNotification(NotificationDocument):
         meta = { "apache_env" : { "KRB5CCNAME" : os.environ["KRB5CCNAME"] } }
         remote_sync = ComponentProxy("ufosync.sync.Sync", meta, config.sync_host)
         remote_sync.proceed_pending_shares(self.following)
-
-        #sync_remote = rpc.Server(config.sync_host, KerbTransport())
-        #sync_remote.sync.proceed_pending_shares(self.following)
 
 
 class CanceledFriendshipNotification(NotificationDocument):

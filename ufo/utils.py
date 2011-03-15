@@ -185,18 +185,6 @@ def get_current_principal(krbccache):
     cprinc_name = ccache.principal().name
     return unicode(cprinc_name)
 
-def user_member_of(meta, principal_name, group_name):
-    """
-    Check if the principal_name is member of group_name
-    """
-    from user import User
-    user = User(meta, principal_name)
-    user.populate()
-    if (group_name in user.groups):
-        return True
-    else:
-        return False
-
 def get_user_infos(login=None, uid=None):
     assert login or uid
 

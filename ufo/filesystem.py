@@ -265,9 +265,6 @@ class CouchedFileSystem(Debugger):
         self.mount_point = mount_point
         self.db_metadatas = db_metadatas
 
-        # Checking if filesystem mount point exist
-        os.lstat(self.mount_point)
-
         # Instantiate couchdb document helper
         self.doc_helper = DocumentHelper(SyncDocument, db_name, server, spnego, batch=False)
 

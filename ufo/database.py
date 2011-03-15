@@ -109,16 +109,6 @@ class DocumentHelper(Debugger):
 
         # Synchronizing all couchdb views of the document class
         self.doc_class = doc_class
-        for attr in self.doc_class.__dict__:
-
-            if isinstance(getattr(self.doc_class, attr), ViewDefinition):
-                getattr(self.doc_class, attr).sync(self.database)
-
-        # For instance, creating the 'changesfilters' design document here
-        if not self.database.get("_design/changes"):
-            changesfilters = ChangesFiltersDocument()
-            changesfilters._data['_id'] = "_design/changes"
-            changesfilters.store(self.database)
 
         self.batchmode = batch
 

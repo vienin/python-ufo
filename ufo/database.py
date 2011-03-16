@@ -107,10 +107,15 @@ class DocumentHelper(Debugger):
             raise DocumentException("Unable to create database '%s' on %s (%s)"
                                     % (db_name, server, e.message))
 
-        # Synchronizing all couchdb views of the document class
         self.doc_class = doc_class
 
         self.batchmode = batch
+
+    def sync(self):
+        # Synchronizing all couchdb views of the document class
+        for attr in self.doc_class.__dict__:
+            if isinstance(getattr(self.doc_class, attr), ViewDefinition):
+                getattr(self.doc_class, attr).sync(self.database)
 
     def commit(self):
       self.debug("%s: Syncing changes" % (self))

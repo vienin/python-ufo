@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 from distutils.core import setup
+from DistUtilsExtra.command import *
 
-setup(name='ufo',
+setup(name='python-ufo',
       version='0.1',
       description='UFO client librairy',
       author='Kevin Pouget',

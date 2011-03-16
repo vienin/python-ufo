@@ -44,6 +44,7 @@ class NotificationDocument(Document, Debugger):
     summary = TextField(default="")
     actions = DictField()
     date    = DateTimeField(default=datetime.now)
+    params  = DictField()
 
     def __init__(self):
         super(NotificationDocument, self).__init__()
@@ -76,8 +77,9 @@ class NewFriendshipNotification(NotificationDocument):
           fullname = utils.get_user_infos(self.following)['fullname']
 
           self.title   = _('New friendship invitation')
-          self.body    = _('You have been invited by %s to be his/her friend.') % fullname
-          self.summary = _("New friend invitation (%s)") % fullname
+          self.body    = _('You have been invited by %(fullname)s to be his/her friend.')
+          self.summary = _("%(fullname)s wants to be your friend")
+          self.params  = { "fullname" : fullname }
 
     def accept_invitation(self):
         self.debug("Accepting the friend invitation from '%s' to '%s'"
@@ -124,9 +126,10 @@ class AcceptedFriendshipNotification(NotificationDocument):
           fullname = utils.get_user_infos(self.following)['fullname']
 
           self.title   = _('Friendship invitation accepted')
-          self.body    = _('%s has accepted your friendship invitation, '
-                           'you can now share some document with him/her.') % fullname
-          self.summary = _("Friend invitation accepted (%s)") % fullname
+          self.body    = _('%(fullname)s has accepted your friendship invitation, '
+                           'you can now share some document with him/her.')
+          self.summary = _("%(fullname)s has accepted your invitation")
+          self.params  = { "fullname" : fullname }
 
     def proceed_pending_shares(self):
         self.debug("Proceed pending shares from '%s' to '%s'"
@@ -152,9 +155,10 @@ class CanceledFriendshipNotification(NotificationDocument):
           fullname = utils.get_user_infos(self.following)['fullname']
 
           self.title   = _('A friendship has been canceled')
-          self.body    = _('%s has remove you from his friend list, '
+          self.body    = _('%(fullname)s has removed you from his friend list, '
                            'you can not access to his files any more.') % fullname
-          self.summary = _("Friendship canceled (%s)") % fullname
+          self.summary = _("%(fullname)s has canceled his friendship with you")
+          self.params  = { "fullname" : fullname }
 
 
 class NewShareNotification(NotificationDocument):
@@ -174,9 +178,10 @@ class NewShareNotification(NotificationDocument):
           fullname = utils.get_user_infos(self.following)['fullname']
 
           self.title   = _('A new file has been shared')
-          self.body    = _('A new file \'%s\' has been shared by %s.') \
-                           % (os.path.basename(self.filepath), fullname)
-          self.summary = _("New file shared (%s)") % fullname
+          self.body    = _('The new file \'%(file)s\' has been shared by %(fullname)s.')
+          self.summary = _("%(fullname) has shared a file with you")
+          self.params = { "file" : os.path.basename(self.filepath),
+                          "fullname" : fullname }
 
 
 class CanceledShareNotification(NotificationDocument):
@@ -196,7 +201,8 @@ class CanceledShareNotification(NotificationDocument):
           fullname = utils.get_user_infos(self.following)['fullname']
 
           self.title   = _('A share has been canceled')
-          self.body    = _('%s has canceled the share of \'%s\', '
-                           'so you can\'t access the file any more.') \
-                           % (fullname, os.path.basename(self.filepath))
-          self.summary = _("Share canceled (%s)") % fullname
+          self.body    = _('%(fullname)s has canceled the share of \'%(file)s\', '
+                           'so you can\'t access the file any more.')
+          self.summary = _("%(fullname)s has canceled a share with you") % fullname
+          self.params  = { "file" : os.path.basename(self.filepath),
+                           "fullname" : fullname }

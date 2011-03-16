@@ -1,0 +1,105 @@
+# French translations for python-ufo package.
+# Copyright (C) 2011 Agorabox.org
+# This file is distributed under the same license as the python-ufo package.
+# Sylvain Baubeau <sylvain.baubeau@agorabox.org>, 2011.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: 0.3\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2011-03-16 16:35+0100\n"
+"PO-Revision-Date: 2011-03-16 16:36+0100\n"
+"Last-Translator: Sylvain Baubeau <sylvain.baubeau@agorabox.org>\n"
+"Language-Team: French <i18n@agorabox.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Poedit-Language: French\n"
+"X-Poedit-Country: FRANCE\n"
+
+#: ../ufo/notify.py:66
+msgid "Block user"
+msgstr "Bloquer l'utilisateur"
+
+#: ../ufo/notify.py:67
+msgid "Refuse"
+msgstr "Refuser"
+
+#: ../ufo/notify.py:68
+msgid "Accept"
+msgstr "Accepter"
+
+#: ../ufo/notify.py:79
+msgid "New friendship invitation"
+msgstr "Nouvelle invitation"
+
+#: ../ufo/notify.py:80
+#, python-format
+msgid "You have been invited by %(fullname)s to be his/her friend."
+msgstr "Vous avez été invité par %(fullname)s à être son ami(e)."
+
+#: ../ufo/notify.py:81
+#, python-format
+msgid "%(fullname)s wants to be your friend"
+msgstr "%(fullname)s désire être votre ami"
+
+#: ../ufo/notify.py:117
+msgid "Ok"
+msgstr "Ok"
+
+#: ../ufo/notify.py:128
+msgid "Friendship invitation accepted"
+msgstr "Invitation acceptée"
+
+#: ../ufo/notify.py:129
+#, python-format
+msgid "%(fullname)s has accepted your friendship invitation, you can now share some document with him/her."
+msgstr "%(fullname)s a accepté votre invitation à devenir ami. Vous pouvez maintenant partager des fichiers avec lui/elle."
+
+#: ../ufo/notify.py:131
+#, python-format
+msgid "%(fullname)s has accepted your invitation"
+msgstr "%(fullname)s a accepté votre invitation"
+
+#: ../ufo/notify.py:157
+msgid "A friendship has been canceled"
+msgstr "Vous avez perdu un ami"
+
+#: ../ufo/notify.py:158
+#, python-format
+msgid "%(fullname)s has removed you from his friend list, you can not access to his files any more."
+msgstr "%(fullname)s vous a enlevé de sa liste d'ami, vous ne pouvez plus accéder aux fichiers qu'il/elle a partagé avec vous."
+
+#: ../ufo/notify.py:160
+#, python-format
+msgid "%(fullname)s has canceled his friendship with you"
+msgstr "%(fullname)s vous a retiré de sa liste d'amis"
+
+#: ../ufo/notify.py:180
+msgid "A new file has been shared"
+msgstr "Un nouveau fichier a été partagé"
+
+#: ../ufo/notify.py:181
+#, python-format
+msgid "The new file '%(file)s' has been shared by %(fullname)s."
+msgstr "%(fullname)s a partagé avec vous le fichier '%(file)s'."
+
+#: ../ufo/notify.py:182
+msgid "%(fullname) has shared a file with you"
+msgstr "%(fullname) a partagé un fichier avec vous"
+
+#: ../ufo/notify.py:203
+msgid "A share has been canceled"
+msgstr "Un partage a été annulé"
+
+#: ../ufo/notify.py:204
+msgid "%(fullname)s has canceled the share of '%s', so you can't access the file any more."
+msgstr "%(fullname)s a annulé le partage du fichier '%s'."
+
+#: ../ufo/notify.py:207
+#, python-format
+msgid "%(fullname)s canceled a share with you"
+msgstr "%(fullname)s a annulé un partage"
+

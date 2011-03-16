@@ -17,5 +17,6 @@ setup(name='python-ufo',
                    'Programming Language :: Python',
                    'Topic :: Utilities'],
       install_requires=['setuptools'],
-     )
-
+      cmdclass = { "build" : build_extra.build_extra,
+                   "build_i18n" :  build_i18n.build_i18n },
+)

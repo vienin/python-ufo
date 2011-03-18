@@ -85,24 +85,21 @@ class NewFriendshipNotification(NotificationDocument):
         self.debug("Accepting the friend invitation from '%s' to '%s'"
                    % (self.following, self.follower))
 
-        meta = { "apache_env" : { "KRB5CCNAME" : os.environ["KRB5CCNAME"] } }
-        remote_account = ComponentProxy("ufoaccount.account.Account", meta, config.sync_host)
+        remote_account = ComponentProxy("ufoaccount.account.Account", config.sync_host)
         remote_account.accept_following(self.following)
 
     def refuse_invitation(self):
         self.debug("Refusing the friend invitation from '%s' to '%s'"
                    % (self.following, self.follower))
 
-        meta = { "apache_env" : { "KRB5CCNAME" : os.environ["KRB5CCNAME"] } }
-        remote_account = ComponentProxy("ufoaccount.account.Account", meta, config.sync_host)
+        remote_account = ComponentProxy("ufoaccount.account.Account", config.sync_host)
         remote_account.refuse_following(self.following)
 
     def block_invitation(self):
         self.debug("Blocking the friend invitation from '%s' to '%s'"
                    % (self.following, self.follower))
 
-        meta = { "apache_env" : { "KRB5CCNAME" : os.environ["KRB5CCNAME"] } }
-        remote_account = ComponentProxy("ufoaccount.account.Account", meta, config.sync_host)
+        remote_account = ComponentProxy("ufoaccount.account.Account", config.sync_host)
         remote_account.block_user(self.following)
 
 
@@ -135,8 +132,7 @@ class AcceptedFriendshipNotification(NotificationDocument):
         self.debug("Proceed pending shares from '%s' to '%s'"
                    % (self.following, self.follower))
 
-        meta = { "apache_env" : { "KRB5CCNAME" : os.environ["KRB5CCNAME"] } }
-        remote_sync = ComponentProxy("ufosync.sync.Sync", meta, config.sync_host)
+        remote_sync = ComponentProxy("ufosync.sync.Sync", config.sync_host, ufo_in_server=False)
         remote_sync.proceed_pending_shares(self.following)
 
 

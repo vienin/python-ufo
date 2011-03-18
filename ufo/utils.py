@@ -141,20 +141,25 @@ class CallProxy(object):
 
 
 class ComponentProxy(object):
-    def __init__(self, component, meta, host, transport=None):
+    def __init__(self, component, host = "http://localhost/xmlrpc", transport=None, meta = {}, ufo_in_server=None):
+        if not meta.has_key("apache_env") and os.environ.has_key("KRB5CCNAME"):
+            meta["apache_env"] = { "KRB5CCNAME" : os.environ["KRB5CCNAME"] }
         self.meta = meta
-        if not config.ufo_in_server:
+        if ufo_in_server == None:
+            ufo_in_server = config.ufo_in_server
+        self.ufo_in_server = ufo_in_server
+        if not ufo_in_server:
             if not transport:
                 transport = KerbTransport()
             self.server = rpc.Server(host, transport)
-            self.component = getattr(self.server, component.__name__.lower())
+            self.component = getattr(self.server, component.split('.')[-1].lower())
         else:
             mod_name, klass_name = get_mod_func(component)
             klass = getattr(import_module(mod_name), klass_name)
             self.component = klass()
 
     def __getattr__(self, name):
-        if config.ufo_in_server:
+        if self.ufo_in_server:
             return CallProxy(getattr(self.component, name), self.meta)
         else:
             return getattr(self.component, name) 

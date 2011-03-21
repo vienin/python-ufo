@@ -186,6 +186,8 @@ class DocumentHelper(Debugger):
             response = k.authGSSClientResponse(self.context)
             dest = { "url" : server + "/" + db_name,
                      "headers" : { "Authorization" : "Negotiate %s" % response } }
+        else:
+            dest = server
 
         if reverse:
             src  = dest

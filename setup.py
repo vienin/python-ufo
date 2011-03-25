@@ -4,8 +4,8 @@ from distutils.core import setup
 from DistUtilsExtra.command import *
 
 setup(name='python-ufo',
-      version='0.1',
-      description='UFO client librairy',
+      version='0.5',
+      description='UFO client library',
       author='Kevin Pouget',
       author_email='pouget@agorabox.org',
       packages=['ufo'],

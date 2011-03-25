@@ -106,12 +106,14 @@ class DocumentHelper(Debugger):
         try:
             # Creating server object
             if not couchdb_servers.has_key(server):
-                couchdb_servers[server] = Server(server, spnego=spnego)
+                couchdb_servers[server] = (Server(server, spnego=spnego), {})
 
-            self.server = couchdb_servers[server]
+            self.server, databases = couchdb_servers[server]
 
             # Creating database if needed
-            if db_name not in self.server:
+            if databases.has_key(db_name):
+                self.database = databases[db_name]
+            elif db_name not in self.server:
                 self.database = self.server.create(db_name)
             else:
                 self.database = self.server[db_name]

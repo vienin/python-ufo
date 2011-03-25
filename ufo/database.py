@@ -72,13 +72,26 @@ class ChangesSequenceDocument(Document):
 class ChangesFiltersDocument(Document):
 
     filters    = DictField(Mapping.build(
-                   by_type = TextField(default='''
-                     function(doc, req) { 
-                       if(doc.doctype == req.query.type)
-                         { return true; }
-                       else 
-                         { return false; }
-                     }''')))
+                   by_type = TextField(default=""
+                     "function(doc, req) {"
+                     "  if(doc.doctype == req.query.type)"
+                     "    { return true; }"
+                     "  else"
+                     "    { return false; }"
+                     "}")))
+
+
+class ReplicationFiltersDocument(Document):
+    filters    = DictField(Mapping.build(
+                   nodesigndocs = TextField(default=""
+                     "function(doc, req) {"
+                     " if(doc._id.slice(0, 8) === '_design/') {"
+                     "  return false;"
+                     " }"
+                     " else {"
+                     "  return true;"
+                     " }"
+                     "}")))
 
 
 class DocumentHelper(Debugger):

@@ -209,7 +209,7 @@ class DocumentHelper(Debugger):
             src = self.database.name
 
         try:
-            self.server.replicate(src, dest, **opts)
+            return self.server.replicate(src, dest, **opts)
         except ResourceNotFound, e:
             raise DocumentException("Can not replicate %s to %s (%s)" %
                                     (src, dest, e.message))

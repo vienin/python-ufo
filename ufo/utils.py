@@ -142,6 +142,7 @@ class CallProxy(object):
 
 class ComponentProxy(object):
     def __init__(self, component, host = "http://localhost/xmlrpc", transport=None, meta = {}, ufo_in_server=None):
+        meta = meta.copy()
         if not meta.has_key("apache_env") and os.environ.has_key("KRB5CCNAME"):
             meta["apache_env"] = { "KRB5CCNAME" : os.environ["KRB5CCNAME"] }
         self.meta = meta

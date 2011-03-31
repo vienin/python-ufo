@@ -175,7 +175,7 @@ class NewShareNotification(NotificationDocument):
 
           self.title   = _('A new file has been shared')
           self.body    = _('The new file \'%(file)s\' has been shared by %(fullname)s.')
-          self.summary = _("%(fullname) has shared a file with you")
+          self.summary = _("%(fullname)s has shared a file with you")
           self.params = { "file" : os.path.basename(self.filepath),
                           "fullname" : fullname }
 

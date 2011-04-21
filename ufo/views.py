@@ -91,7 +91,8 @@ class BuddySharesSyncDocument(SyncDocument):
               if row['key'] != database.name:
                 # Retrieve provider infos from gss api
                 infos = utils.get_user_infos(row['key'])
-                yield cls(filename=infos['fullname'],
+                #yield cls(filename=infos['fullname'],
+                yield cls(filename=infos['login'],
                           dirpath=os.sep,
                           mode=0555 | stat.S_IFDIR,
                           uid=infos['uid'],
@@ -121,7 +122,8 @@ class MySharesSyncDocument(SyncDocument):
               if row['key'] != database.name:
                 # Retrieve participant infos from gss api
                 infos = utils.get_user_infos(row['key'])
-                yield cls(filename=infos['fullname'],
+                #yield cls(filename=infos['fullname'],
+                yield cls(filename=infos['login'],
                           dirpath=os.sep,
                           mode=0555 | stat.S_IFDIR,
                           uid=infos['uid'],

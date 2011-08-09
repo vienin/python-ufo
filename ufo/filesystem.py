@@ -71,7 +71,7 @@ class SyncDocument(UTF8Document):
 
         if stats:
             self.set_stats(stats)
-  
+
     def set_stats(self, stat_result):
         for field in self.stats._fields.keys():
             if isinstance(stat_result, dict):

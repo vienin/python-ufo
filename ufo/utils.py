@@ -192,7 +192,7 @@ def get_current_principal(krbccache):
     return unicode(cprinc_name)
 
 def get_user_infos(login=None, uid=None):
-    assert login or uid
+    assert login != None or uid != None
 
     if login:
       key = login

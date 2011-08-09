@@ -152,7 +152,7 @@ class CanceledFriendshipNotification(NotificationDocument):
 
           self.title   = _('A friendship has been canceled')
           self.body    = _('%(fullname)s has removed you from his friend list, '
-                           'you can not access to his files any more.') % fullname
+                           'you can not access to his files any more.')
           self.summary = _("%(fullname)s has canceled his friendship with you")
           self.params  = { "fullname" : fullname }
 
@@ -199,6 +199,6 @@ class CanceledShareNotification(NotificationDocument):
           self.title   = _('A share has been canceled')
           self.body    = _('%(fullname)s has canceled the share of \'%(file)s\', '
                            'so you can\'t access the file any more.')
-          self.summary = _("%(fullname)s has canceled a share with you") % fullname
+          self.summary = _("%(fullname)s has canceled a share with you")
           self.params  = { "file" : os.path.basename(self.filepath),
                            "fullname" : fullname }

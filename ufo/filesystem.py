@@ -429,21 +429,33 @@ class CouchedFileSystem(Debugger):
         Call type : "Update"
         '''
 
-        # Firstly rename the file on the filesystem
-        os.rename(self.real_path(old), self.real_path(new))
-
         # Updating directory and filename of the document
         document = self[old]
-        document.filename = os.path.basename(new)
-        document.dirpath  = os.path.dirname(new)
+        try:
+            dest = self.doc_helper.by_path(key=new, pk=True)
+        except Exception, e:
+            dest = None
+
+        if dest and stat.S_ISDIR(dest.mode):
+            document.dirpath = new
+            new = os.path.join(new, document.filename)
+        else:
+            document.filename = os.path.basename(new)
+            document.dirpath  = os.path.dirname(new)
 
         documents = [ document ]
+
+        if dest:
+            self.unlink(new)
+
+        # Firstly rename the file on the filesystem
+        os.rename(self.real_path(old), self.real_path(new))
 
         # Updating directory subtree documents
         if stat.S_ISDIR(document.mode):
 
             # TODO: make this smarter
-            for doc in self.doc_helper.by_dir_prefix(key=old):
+            for doc in self.doc_helper.by_path(key=old, pk=True):
                 doc.dirpath = doc.dirpath.replace(old, new, 1)
                 documents.append(doc)
 

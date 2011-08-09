@@ -22,6 +22,7 @@ import utils
 
 from filesystem import SyncDocument
 from sharing import ShareDocument
+from utils import get_user_infos
 
 from couchdb.mapping import ViewField
 

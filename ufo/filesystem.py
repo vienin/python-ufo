@@ -22,7 +22,7 @@ import uuid
 import errno
 import shutil
 
-from utils import MutableStat, MimeType
+from utils import MutableStat, MimeType, get_user_infos
 from debugger import Debugger
 from database import *
 

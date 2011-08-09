@@ -177,6 +177,14 @@ class BlockedUserError(PrivateError):
     format = 'User not in the blocked users list'
 
 
+class InvalidUserError(PrivateError):
+    """
+    Raise when an invalid user is specified, for instance when
+    someone wants to be friend with himself
+    """
+    error = 6005
+    format = 'invalid user'
+
 ########################################################################
 # File Sharing Errors
 ########################################################################

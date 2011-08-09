@@ -143,6 +143,12 @@ class SyncDocument(UTF8Document):
       if doc['doctype'] == "SyncDocument":
         yield doc['_id'], doc
 
+    @ViewField.define('syncdocument')
+    def by_keyword(doc):
+      if doc['doctype'] == 'SyncDocument' and doc['filename']:
+          for i in xrange(len(doc['filename']) - 2):
+              yield doc['filename'][i:].lower(), doc
+
     def __str__(self):
         return ('<%s id:%s path:%s type:%s>'
                 % (self.doctype,

@@ -157,6 +157,12 @@ class SyncDocument(UTF8Document):
     def path(self):
         return os.path.join(self.dirpath, self.filename)
 
+    @property
+    def gecos(self):
+        if self.type == "application/x-directory":
+            return get_user_infos(uid=self.uid)['fullname']
+        else:
+            return ""
 
 class CouchedFile(Debugger):
 

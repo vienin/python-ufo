@@ -202,7 +202,7 @@ class DocumentHelper(Debugger):
             dest = { "url" : server + "/" + db_name,
                      "headers" : { "Authorization" : "Negotiate %s" % response } }
         else:
-            dest = server
+            dest = server + "/" + db_name
 
         if reverse:
             src  = dest

@@ -493,8 +493,17 @@ class CouchedFileSystem(Debugger):
             os.rmdir(self.real_path(path))
 
         if not nodb:
-            # Then remove the document from the database
-            self.doc_helper.delete(self[path])
+            folder = self[path]
+
+            # Updating directory subtree documents  
+            if stat.S_ISDIR(folder.mode):
+
+                # TODO: make this smarter
+                for doc in self.doc_helper.by_dir_prefix(key=path):
+                    self.doc_helper.delete(doc)
+
+                # Then remove the document from the database
+                self.doc_helper.delete(folder)
 
     @normpath
     def stat(self, path):

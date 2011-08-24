@@ -84,9 +84,25 @@ class BadFriendshipStatus(PrivateError):
     format = 'bad friendship status'
 
 
+class AlreadyFriendError(PrivateError):
+    """
+    **6002** Raised when a user attempts to invite/accept a user already a friend.
+
+    For example:
+
+    >>> raise AlreadyFriendError()
+    Traceback (most recent call last):
+      ...
+    AlreadyFollowingError: the user you attempt to invite/accept is already a friend.
+
+    """
+    errno = 6002
+    format = 'the user you attempt to invite/accept is already a friend.'
+
+
 class AlreadyFollowingError(PrivateError):
     """
-    **6002** Raised when a user attempts to invite/accept a user already a following.
+    **6003** Raised when a user attempts to invite/accept a user already a following.
 
     For example:
 
@@ -96,13 +112,13 @@ class AlreadyFollowingError(PrivateError):
     AlreadyFollowingError: the user you attempt to invite/accept is already a following user.
 
     """
-    errno = 6002
+    errno = 6003
     format = 'the user you attempt to invite/accept is already a following user.'
 
 
 class AlreadyFollowerError(PrivateError):
     """
-    **6012** Raised when a user attempts to invite/accept a user already a follower.
+    **6004** Raised when a user attempts to invite/accept a user already a follower.
 
     For example:
 
@@ -112,23 +128,27 @@ class AlreadyFollowerError(PrivateError):
     AlreadyFollowerError: the user you attempt to invite/accept is already a follower user.
 
     """
-    errno = 6012
+    errno = 6004
     format = 'the user you attempt to invite/accept is already a follower user.'
 
 
+class NotFriendError(PrivateError):
+    errno = 6005
+    format = 'User is not your friend'
+
 class NotFollowingError(PrivateError):
-    errno = 6003
+    errno = 6006
     format = 'User is not your following'
 
 
 class NotFollowerError(PrivateError):
-    errno = 6013
+    errno = 6007
     format = 'User is not your follower'
 
 
 class PendingFollowingError(PrivateError):
     """
-    **6003** Raised when a user attempts to invite a following user who is already 
+    **6008** Raised when a user attempts to invite a following user who is already 
     in his pending followings list
 
     For example:
@@ -139,13 +159,13 @@ class PendingFollowingError(PrivateError):
     PendingFollowingError: user is in the pending followings list
 
     """
-    errno = 6004
+    errno = 6008
     format = 'user is in the pending followings list'
 
 
 class PendingFollowerError(PrivateError):
     """
-    **6013** Raised when a user attempts to invite a follower user who is already 
+    **6009** Raised when a user attempts to invite a follower user who is already 
     in his pending followers list
 
     For example:
@@ -156,13 +176,13 @@ class PendingFollowerError(PrivateError):
     PendingFollowerError: user is in the pending followers list
 
     """
-    errno = 6014
+    errno = 6009
     format = 'user is in the pending followers list'
 
 
 class BlockedUserError(PrivateError):
     """
-    **6004** Raised when a user attempts to invite a blocked user to be 
+    **6010** Raised when a user attempts to invite a blocked user to be 
     his/her following or his/her follower, 
 
     For example:
@@ -173,7 +193,7 @@ class BlockedUserError(PrivateError):
     BlockedUserError: blocked user
 
     """
-    errno = 6004
+    errno = 6010
     format = 'User not in the blocked users list'
 
 
@@ -182,7 +202,7 @@ class InvalidUserError(PrivateError):
     Raise when an invalid user is specified, for instance when
     someone wants to be friend with himself
     """
-    error = 6005
+    error = 6011
     format = 'invalid user'
 
 ########################################################################

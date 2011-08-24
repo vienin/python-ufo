@@ -75,10 +75,9 @@ class SortedByTypeSyncDocument(SyncDocument):
 class BuddySharesSyncDocument(SyncDocument):
 
     @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum)
-    def sorted_by_following(doc):
-        if (doc['doctype'] == "FriendDocument" and
-            (doc['status'] == "FOLLOWING" or doc['status'] == "PENDING_FOLLOWING")):
-            yield doc['login'], 1
+    def sorted_by_provider(doc):
+        if doc['doctype'] == "ShareDocument":
+            yield doc['provider'], 1
 
     @classmethod
     def getDocuments(cls, database, buddy=None):
@@ -88,7 +87,7 @@ class BuddySharesSyncDocument(SyncDocument):
                 yield doc
 
         else:
-            for row in cls.sorted_by_following(database, group=True):
+            for row in cls.sorted_by_provider(database, group=True):
               if row['key'] != database.name:
                 # Retrieve provider infos from gss api
                 infos = utils.get_user_infos(row['key'])
@@ -104,10 +103,9 @@ class BuddySharesSyncDocument(SyncDocument):
 class MySharesSyncDocument(SyncDocument):
 
     @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum)
-    def sorted_by_follower(doc):
-        if (doc['doctype'] == "FriendDocument" and
-            (doc['status'] == "FOLLOWER" or doc['status'] == "PENDING_FOLLOWER")):
-            yield doc['login'], 1
+    def sorted_by_participant(doc):
+        if doc['doctype'] == "ShareDocument":
+            yield doc['participant'], 1
 
     @classmethod
     def getDocuments(cls, database, buddy=None):
@@ -119,7 +117,7 @@ class MySharesSyncDocument(SyncDocument):
                 yield doc
 
         else:
-            for row in cls.sorted_by_follower(database, group=True):
+            for row in cls.sorted_by_participant(database, group=True):
               if row['key'] != database.name:
                 # Retrieve participant infos from gss api
                 infos = utils.get_user_infos(row['key'])

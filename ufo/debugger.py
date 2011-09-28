@@ -14,11 +14,27 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+from ufo import config
+
+import os
 import sys
-import syslog
 import traceback
 
-from ufo import config
+# Windows...
+if sys.platform != "win32":
+    from syslog import openlog, syslog, LOG_WARNING
+
+else:
+    import logging
+
+    def openlog(name):
+        logging.basicConfig(filename=os.path.join('logs', name), level=logging.DEBUG)
+
+    def syslog(level, message):
+        logging.warning(message)
+
+    LOG_WARNING = 6
+
 
 class Debugger(object):
   '''
@@ -26,7 +42,8 @@ class Debugger(object):
   objects should use.
   '''
 
-  _name = None
+  _name   = None
+  _opened = False
 
   def _setName(self, name):
     '''
@@ -67,12 +84,15 @@ class Debugger(object):
     self._validateName()
 
     if config.debug_mode:
+      if not self._opened:
+          openlog(self._getName() + ".log")
+
       name = '%s(%s)' % (self._getName(), self._getCaller()[2])
       s = '%s: %s' % (name, args)
       if len(s) > 252:
         s = s[:252] + '...'
 
-      syslog.syslog(syslog.LOG_WARNING, s)
+      syslog(LOG_WARNING, s)
 
   def debug_exception(self):
     if config.debug_mode:

@@ -22,6 +22,9 @@ import errno
 import shutil
 import difflib
 
+# Fuse paths are UNIX-like whatever the operating system
+import posixpath
+
 from ufo.utils import MutableStat, CacheDict, get_user_infos
 from ufo.debugger import Debugger
 from ufo.database import *
@@ -29,12 +32,12 @@ import ufo.acl as acl
 
 def normpath(func):
     def handler(self, path, *args, **kw):
-        return func(self, os.path.normpath(path), *args, **kw)
+        return func(self, posixpath.normpath(path), *args, **kw)
     return handler
 
 def norm2path(func):
     def handler(self, path, path2, *args, **kw):
-        return func(self, os.path.normpath(path), os.path.normpath(path2), *args, **kw)
+        return func(self, posixpath.normpath(path), posixpath.normpath(path2), *args, **kw)
     return handler
 
 def _wrap_bypass(row):
@@ -88,7 +91,8 @@ class SyncDocument(UTF8Document):
             if isinstance(stat_result, dict):
                 self.stats[field] = stat_result[field]
             else:
-                self.stats[field] = getattr(stat_result, field)
+                if hasattr(stat_result, field):
+                    self.stats[field] = getattr(stat_result, field)
   
     def get_stats(self):
         stat_result = MutableStat()
@@ -139,18 +143,18 @@ class SyncDocument(UTF8Document):
        return acl.ACL.from_mode(self.mode)
 
     def __str__(self):
-        return '<%s id:%s path:%s type:%s>' % \
-                  (self.doctype,
+        return ('<%s id:%s path:%s type:%s>'
+                % (self.doctype,
                    self.id,
-                   os.path.join(self.dirpath, self.filename),
-                   self.type)
+                   posixpath.join(self.dirpath, self.filename),
+                   self.type))
 
     def __repr__(self):
         return str(self)
 
     @property
     def path(self):
-        return os.path.join(self.dirpath, self.filename)
+        return posixpath.join(self.dirpath, self.filename)
 
     @property
     def gecos(self):
@@ -170,7 +174,7 @@ class SyncDocument(UTF8Document):
 
     @ViewField.define('syncdocument')
     def by_path(doc):
-        from os.path import join
+        from posixpath import join
         if doc['doctype'] == "SyncDocument":
             yield join(doc['dirpath'], doc['filename']), doc
 
@@ -186,12 +190,11 @@ class SyncDocument(UTF8Document):
 
     @ViewField.define('syncdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum, reduce=False)
     def by_dir_prefix(doc):
-        from os import sep
-        from os.path import dirname
+        from posixpath import dirname
         if doc['doctype'] == "SyncDocument":
             last = ''
             current = doc['dirpath']
-            while current != sep and current != last:
+            while current != '/' and current != last:
                 yield current, doc
                 last = current
                 current = dirname(current)
@@ -319,8 +322,8 @@ class CouchedFile(Debugger):
                     self.debug("Creating default new document")
 
                     stats = os.lstat(self.filesystem.real_path(path))
-                    fields = { 'filename' : os.path.basename(path),  
-                               'dirpath'  : os.path.dirname(path),   
+                    fields = { 'filename' : posixpath.basename(path),  
+                               'dirpath'  : posixpath.dirname(path),   
                                'uid'      : uid,
                                'gid'      : gid,
                                'mode'     : mode,
@@ -333,14 +336,15 @@ class CouchedFile(Debugger):
                 raise e
 
     def close(self, release=True):
-        path = os.path.join(self.document.dirpath, self.document.filename)
+        path = posixpath.join(self.document.dirpath, self.document.filename)
         realpath = self.filesystem.real_path(path)
 
         try:
             self.file_ptr.close()
+            newstats = os.lstat(realpath)
 
         except (OSError, IOError), e:
-            self.debug("Could not close %s (%s), %e" % (path, realpath, e.message))
+            self.debug("Could not close %s (%s), %s" % (path, realpath, e.message))
             raise
 
         if release and not self.fixed and self.flags & (os.O_RDWR | os.O_WRONLY | os.O_TRUNC | os.O_APPEND):
@@ -351,10 +355,9 @@ class CouchedFile(Debugger):
             stats = self.document.get_stats()
 
             self.document.type = mimetype
-            stats.st_mtime  = newstats.st_mtime
-            stats.st_atime  = newstats.st_atime
-            stats.st_blocks = newstats.st_blocks
-            stats.st_size   = newstats.st_size
+            for attr in ['st_mtime', 'st_mtime', 'st_blocks', 'st_size']:
+                if hasattr(newstats, attr):
+                    setattr(stats, attr, getattr(newstats, attr))
             self.document.set_stats(stats)
 
             return self.filesystem.doc_helper.update(self.document)
@@ -442,8 +445,8 @@ class CouchedFileSystem(Debugger):
             stats = self.realfs.lstat(path)
             if not uid: uid = stats.st_uid
             if not gid: gid = stats.st_gid
-            fields = { 'filename' : os.path.basename(path),
-                       'dirpath'  : os.path.dirname(path),
+            fields = { 'filename' : posixpath.basename(path),
+                       'dirpath'  : posixpath.dirname(path),
                        'uid'      : uid,
                        'gid'      : gid,
                        'mode'     : mode | stat.S_IFDIR,
@@ -458,8 +461,8 @@ class CouchedFileSystem(Debugger):
             updated.append(document)
 
         # Finally update the stats of the parent directory into the database
-        if os.path.dirname(path) != os.sep:
-            parent = self[os.path.dirname(path)]
+        if posixpath.dirname(path) != os.sep:
+            parent = self[posixpath.dirname(path)]
             parent.set_stats(self.realfs.lstat(os.path.dirname(path)))
 
             updated.extend(self.doc_helper.update(parent))
@@ -485,8 +488,8 @@ class CouchedFileSystem(Debugger):
 
         if not document:
             # Then create the document into the database
-            fields = { 'filename' : os.path.basename(symlink),
-                       'dirpath'  : os.path.dirname(symlink),
+            fields = { 'filename' : posixpath.basename(symlink),
+                       'dirpath'  : posixpath.dirname(symlink),
                        'uid'      : uid,
                        'gid'      : gid,
                        'mode'     : 0777 | stat.S_IFLNK,
@@ -501,7 +504,7 @@ class CouchedFileSystem(Debugger):
             updated.append(document)
 
         # Finally update the stats of the parent directory into the database
-        parent = self[os.path.dirname(symlink)]
+        parent = self[posixpath.dirname(symlink)]
         parent.set_stats(self.realfs.lstat(os.path.dirname(symlink)))
 
         updated.extend(self.doc_helper.update(parent))
@@ -708,10 +711,10 @@ class CouchedFileSystem(Debugger):
 
         if dest and stat.S_ISDIR(dest.mode):
             document.dirpath = new
-            new = os.path.join(new, document.filename)
+            new = posixpath.join(new, document.filename)
         else:
-            document.filename = os.path.basename(new)
-            document.dirpath  = os.path.dirname(new)
+            document.filename = posixpath.basename(new)
+            document.dirpath  = posixpath.dirname(new)
 
         documents = [ document ]
 
@@ -832,8 +835,8 @@ class CouchedFileSystem(Debugger):
         stats = self.realfs.lstat(path)
         mimetype = self.realfs.get_mime_type(path).basic()
 
-        fields = { 'filename' : os.path.basename(path),
-                   'dirpath'  : os.path.dirname(path),
+        fields = { 'filename' : posixpath.basename(path),
+                   'dirpath'  : posixpath.dirname(path),
                    'uid'      : stats.st_uid,
                    'gid'      : stats.st_gid,
                    'mode'     : stats.st_mode,

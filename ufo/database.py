@@ -36,7 +36,7 @@ couchdb_servers = {}
 class UTF8Document(Document):
     def __init__(self, *args, **fields):
         for field in fields:
-            if isinstance(fields[field], str):
+            if isinstance(fields[field], str) and fields[field]:
                 fields[field] = fields[field].decode('utf-8')
 
         super(UTF8Document, self).__init__(*args, **fields)
@@ -85,11 +85,20 @@ class ReplicationFiltersDocument(Document):
     filters    = DictField(Mapping.build(
                    nodesigndocs = TextField(default=""
                      "function(doc, req) {"
-                     " if(doc._id.slice(0, 8) === '_design/') {"
+                     " if (doc.local) return false;"
+                     " if (doc._id.slice(0, 8) === '_design/') {"
                      "  return false;"
                      " }"
                      " else {"
                      "  return true;"
+                     " }"
+                     "}"),
+
+                   onlymeta = TextField(default=""
+                     "function(doc, req) {"
+                     " if (doc.local) return false;"
+                     " if (doc.doctype == 'FriendDocument') {"
+                     "   return true;"
                      " }"
                      "}")))
 
@@ -113,10 +122,13 @@ class DocumentHelper(Debugger):
             # Creating database if needed
             if databases.has_key(db_name):
                 self.database = databases[db_name]
-            elif db_name not in self.server:
-                self.database = self.server.create(db_name)
             else:
-                self.database = self.server[db_name]
+                try:
+                    self.database = self.server[db_name]
+                except:
+                    self.database = self.server.create(db_name)
+                finally:
+                    databases[db_name] = self.database
 
         except socket.error, e:
             raise DocumentException("Unable to create database '%s' on %s (%s)"
@@ -243,7 +255,7 @@ class DocumentHelper(Debugger):
 
             return view_wrapper
 
-        return lambda **args: getattr(self.doc_class, attr).__call__(self.database, **args)
+        return lambda *args, **kw: getattr(self.doc_class, attr).__call__(self.database, *args, **kw)
 
     def __str__(self):
         return '<DocumentHelper class: %s server: %s database: %s>' % \

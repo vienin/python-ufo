@@ -26,7 +26,6 @@ import syslog
 import traceback
 
 import xmlrpclib as rpc
-from ipalib.rpc import KerbTransport
 
 from threading import RLock
 
@@ -151,6 +150,7 @@ class ComponentProxy(object):
         self.ufo_in_server = ufo_in_server
         if not ufo_in_server:
             if not transport:
+                from ipalib.rpc import KerbTransport
                 transport = KerbTransport()
             self.server = rpc.Server(host, transport)
             self.component = getattr(self.server, component.split('.')[-1].lower())

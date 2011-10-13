@@ -21,8 +21,9 @@ import stat
 import utils
 
 from filesystem import SyncDocument
-from sharing import ShareDocument
+from sharing import FriendDocument
 from utils import get_user_infos
+import pwd
 
 from couchdb.mapping import ViewField
 
@@ -72,23 +73,17 @@ class SortedByTypeSyncDocument(SyncDocument):
                           type="application/x-directory")
 
 
-class BuddySharesSyncDocument(SyncDocument):
+class FriendSyncDocument(SyncDocument):
 
     @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum)
-    def sorted_by_provider(doc):
-        if doc['doctype'] == "ShareDocument":
-            yield doc['provider'], 1
+    def sorted_by_login(doc):
+        if doc['doctype'] == 'FriendDocument' and doc['status'] != 'BLOCKED_USER':
+            yield doc['login'], 1
 
     @classmethod
-    def getDocuments(cls, database, buddy=None):
-        if buddy:
-            for doc in cls.by_uid(database, key=int(buddy)):
-              if doc.type != "application/x-directory":
-                yield doc
-
-        else:
-            for row in cls.sorted_by_provider(database, group=True):
-              if row['key'] != database.name:
+    def getDocuments(cls, database):
+        for row in cls.sorted_by_login(database, group=True):
+            if row['key'] != database.name:
                 # Retrieve provider infos from gss api
                 infos = utils.get_user_infos(row['key'])
                 #yield cls(filename=infos['fullname'],
@@ -100,34 +95,96 @@ class BuddySharesSyncDocument(SyncDocument):
                           type="application/x-directory")
 
 
-class MySharesSyncDocument(SyncDocument):
+class BuddySharesSyncDocument(SyncDocument):
 
-    @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum)
-    def sorted_by_participant(doc):
-        if doc['doctype'] == "ShareDocument":
-            yield doc['participant'], 1
+    @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_unique)
+    def sorted_by_provider(doc):
+        import pwd
+        if doc['doctype'] == 'SyncDocument':
+            yield pwd.getpwuid(doc['uid']).pw_name, 1
 
     @classmethod
-    def getDocuments(cls, database, buddy=None):
-        if buddy:
-            participant = utils.get_user_infos(uid=int(buddy))['login']
-            for share in ShareDocument.by_provider_and_participant(database,
-                                                                   key=[database.name, participant]):
-              for doc in cls.by_id(database, key=share.fileid):
+    def getDocuments(cls, database, *path):
+        if len(path) > 1:
+            login = pwd.getpwuid(path[0]).pw_name
+            for doc in cls.by_dir(database,
+                                  key="/" + "/".join([login] + list(path[1:]))):
+                yield doc
+        elif len(path) == 1:
+            login = pwd.getpwuid(path[0]).pw_name
+            shared_dirs = { }
+            startkey = [ path[0], "/" + login ]
+            endkey = [ path[0] + 1 ]
+            for doc in cls.by_uid_and_path(database, startkey=startkey, endkey=endkey):
+                if doc.type == "application/x-directory":
+                    shared_dirs[doc.path] = doc
+                else:
+                    if doc.dirpath in shared_dirs:
+                        continue
+                yield doc
+
+        else:
+            for row in cls.sorted_by_provider(database, group=True):
+                if row['key'] != database.name:
+                    # Retrieve provider infos from gss api
+                    infos = utils.get_user_infos(row['key'])
+                    #yield cls(filename=infos['fullname'],
+                    yield cls(filename=infos['login'],
+                              dirpath=os.sep,
+                              mode=0555 | stat.S_IFDIR,
+                              uid=infos['uid'],
+                              gid=infos['gid'],
+                              type="application/x-directory")
+
+
+class MySharesSyncDocument(SyncDocument):
+
+    @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_unique)
+    def sorted_by_participant(doc):
+        import pwd
+        from ufo.acl import ACL, ACL_XATTR, ACL_USER
+        if doc['doctype'] == 'SyncDocument' and doc.get('xattrs', {}).has_key(ACL_XATTR):
+            try:
+                acl = ACL.from_xattr(eval(repr(doc['xattrs'][ACL_XATTR])[1:]))
+                for ace in acl:
+                    if ace.kind & ACL_USER:
+                        yield pwd.getpwuid(ace._qualifier).pw_name, 1
+            except: pass
+
+    @classmethod
+    def getDocuments(cls, database, *path):
+        if len(path) > 1:
+            login = pwd.getpwuid(path[0]).pw_name
+            for doc in cls.by_dir(database,
+                                  key="/" + "/".join([login] + list(path[1:]))):
+                yield doc
+        elif len(path) == 1:
+            shared_dirs = {}
+            provider_id = pwd.getpwnam(database.name).pw_uid
+            startkey = [ provider_id, int(path[0]) ]
+            endkey = [ provider_id, int(path[0]) + 1 ]
+            for doc in SyncDocument.by_provider_and_participant(database,
+                                                                startkey=startkey,
+                                                                endkey=endkey):
+                if doc.type == "application/x-directory":
+                    shared_dirs[doc.path] = doc
+                else:
+                    if doc.dirpath in shared_dirs:
+                        continue
                 yield doc
 
         else:
             for row in cls.sorted_by_participant(database, group=True):
-              if row['key'] != database.name:
-                # Retrieve participant infos from gss api
-                infos = utils.get_user_infos(row['key'])
-                #yield cls(filename=infos['fullname'],
-                yield cls(filename=infos['login'],
-                          dirpath=os.sep,
-                          mode=0555 | stat.S_IFDIR,
-                          uid=infos['uid'],
-                          gid=infos['gid'],
-                          type="application/x-directory")
+                if row['key'] != database.name:
+                    # Retrieve participant infos from gss api
+                    infos = utils.get_user_infos(row['key'])
+                    #yield cls(filename=infos['fullname'],
+                    yield cls(filename=infos['login'],
+                              dirpath=os.sep,
+                              mode=0555 | stat.S_IFDIR,
+                              uid=infos['uid'],
+                              gid=infos['gid'],
+                              type="application/x-directory")
 
 
 class TaggedSyncDocument(SyncDocument):
@@ -136,17 +193,21 @@ class TaggedSyncDocument(SyncDocument):
     def sorted_by_tag(doc):
         if doc['doctype'] == "SyncDocument":
             for tag in doc['tags']:
-                yield tag, 1
+                yield [ doc['uid'], tag ], 1
 
     @classmethod
-    def getDocuments(cls, database, tag=None):
+    def getDocuments(cls, database, tag=None, uid=None):
         if tag:
             for doc in cls.by_tag(database, key=tag):
-              yield doc
+                yield doc
 
         else:
-            for row in cls.sorted_by_tag(database, group=True):
-                yield cls(filename=row['key'],
+            kw = { "group" : True }
+            if uid:
+                kw["startkey"] = [ uid ]
+                kw["endkey"] = [ uid + 1 ]
+            for row in cls.sorted_by_tag(database, **kw):
+                yield cls(filename=row['key'][1],
                           dirpath=os.sep,
                           mode=0555 | stat.S_IFDIR,
                           type="application/x-directory")

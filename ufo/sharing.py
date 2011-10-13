@@ -17,8 +17,8 @@
 '''UFO file synchronization client library.'''
 
 
-from database import Document, TextField, ViewField
-from constants import Notification
+from database import Document, TextField, ViewField, DictField
+from constants import Notification, FriendshipStatus
 
 class FriendDocument(Document):
 
@@ -26,6 +26,7 @@ class FriendDocument(Document):
 
     status = TextField()
     login  = TextField()
+    pending_shares = DictField()
 
     @ViewField.define('friend')
     def by_login(doc):
@@ -48,46 +49,7 @@ class FriendDocument(Document):
 
     @ViewField.define('friend')
     def by_id(doc):
-      if doc['doctype'] == "FriendDocument":
-        yield doc['_id'], doc
+        if doc['doctype'] == "FriendDocument":
+          yield doc['_id'], doc
 
 
-class ShareDocument(Document):
-
-    doctype = TextField(default="ShareDocument")
-
-    provider    = TextField()
-    participant = TextField()
-    fileid      = TextField()
-    permissions = TextField()
-    flags       = TextField()
-
-    @ViewField.define('share')
-    def by_fileid(doc):
-        if doc['doctype'] == 'ShareDocument':
-            yield doc['fileid'], doc
-
-    @ViewField.define('share')
-    def by_provider_and_fileid(doc):
-        if doc['doctype'] == 'ShareDocument':
-            yield [doc['provider'], doc['fileid']], doc
-
-    @ViewField.define('share')
-    def by_provider_and_participant(doc):
-        if doc['doctype'] == 'ShareDocument':
-            yield [doc['provider'], doc['participant']], doc
-
-    @ViewField.define('share')
-    def by_provider_and_participant_and_fileid(doc):
-        if doc['doctype'] == 'ShareDocument':
-            yield [doc['provider'], doc['participant'], doc['fileid']], doc
-
-    @ViewField.define('share')
-    def by_provider_and_participant_and_flag(doc):
-        if doc['doctype'] == 'ShareDocument':
-            yield [doc['provider'], doc['participant'], doc['flags']], doc
-
-    @ViewField.define('share')
-    def by_id(doc):
-      if doc['doctype'] == "ShareDocument":
-        yield doc['_id'], doc

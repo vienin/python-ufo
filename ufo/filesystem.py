@@ -21,10 +21,14 @@ import stat
 import uuid
 import errno
 import shutil
+import xattr
+import difflib
+import subprocess
 
-from utils import MutableStat, MimeType, get_user_infos
-from debugger import Debugger
-from database import *
+from ufo.utils import MutableStat, MimeType, CacheDict, get_user_infos
+from ufo.debugger import Debugger
+from ufo.database import *
+import ufo.acl as acl
 
 def normpath(func):
     def handler(self, path, *args, **kw):
@@ -35,6 +39,9 @@ def norm2path(func):
     def handler(self, path, path2, *args, **kw):
         return func(self, os.path.normpath(path), os.path.normpath(path2), *args, **kw)
     return handler
+
+def _reduce_sum(keys, values):
+    return sum(values)
 
 class SyncDocument(UTF8Document):
 
@@ -62,6 +69,7 @@ class SyncDocument(UTF8Document):
                    st_rdev    = IntegerField(),
                    st_size    = LongField(),
                    st_uid     = IntegerField()))
+    xattrs   = DictField()
 
     # TODO: Use a dedicated document class for tags
     tags = ListField(TextField())
@@ -99,6 +107,17 @@ class SyncDocument(UTF8Document):
       if tag in self.tags:
         self.tags.remove(tag)
 
+    @property
+    def posix_acl(self):
+	try:
+            posix_acl_access = eval(repr(self.xattrs.get('system.posix_acl_access', u''))[1:])
+            if posix_acl_access:
+                return acl.ACL.from_xattr(posix_acl_access)
+            else:
+                return acl.ACL.from_mode(self.stats['st_mode'])
+        except:
+            return acl.ACL()
+
     @ViewField.define('syncdocument')
     def by_path(doc):
         from os.path import join
@@ -114,6 +133,12 @@ class SyncDocument(UTF8Document):
     def by_uid(doc):
         if doc['doctype'] == "SyncDocument":
             yield doc['uid'], doc
+
+    @ViewField.define('syncdocument')
+    def by_uid_and_path(doc):
+        from os.path import join
+        if doc['doctype'] == "SyncDocument":
+            yield [ doc['uid'] ] + doc['dirpath'].split('/')[1:] + [ doc['filename'] ], doc
 
     @ViewField.define('syncdocument')
     def by_dir(doc):
@@ -149,6 +174,29 @@ class SyncDocument(UTF8Document):
           for i in xrange(len(doc['filename']) - 2):
               yield doc['filename'][i:].lower(), doc
 
+    @ViewField.define('syncdocument')
+    def by_provider_and_participant(doc):
+        from ufo.acl import ACL, ACL_XATTR, ACL_USER
+        if doc['doctype'] == 'SyncDocument' and doc.get('xattrs', {}).has_key(ACL_XATTR):
+            try:
+                acl = ACL.from_xattr(eval(repr(doc['xattrs'][ACL_XATTR])[1:]))
+                for ace in acl:
+                    if ace.kind & ACL_USER:
+                        yield [ int(doc['uid']), ace._qualifier, doc['dirpath'] + "/" + doc['filename'] ], doc
+            except: pass
+
+    @ViewField.define('syncdocument')
+    def by_participant(doc):
+        import pwd
+        from ufo.acl import ACL, ACL_XATTR, ACL_USER
+        if doc['doctype'] == 'SyncDocument' and doc.get('xattrs', {}).has_key(ACL_XATTR):
+            try:
+                acl = ACL.from_xattr(eval(repr(doc['xattrs'][ACL_XATTR])[1:]))
+                for ace in acl:
+                    if ace.kind & ACL_USER:
+                        yield pwd.getpwuid(ace._qualifier).pw_name, doc
+            except: pass
+
     def __str__(self):
         return ('<%s id:%s path:%s type:%s>'
                 % (self.doctype,
@@ -170,6 +218,59 @@ class SyncDocument(UTF8Document):
         else:
             return ""
 
+    def isdir(self):
+        return stat.S_ISDIR(self.mode)
+
+    def islink(self):
+        return stat.S_ISLNK(self.mode)
+
+    def isfile(self):
+        return stat.S_ISREG(self.mode)
+
+def create(func):
+    def cache_create(self, *args, **kw):
+        if not self.caching: return
+        docs = func(self, *args, **kw)
+        for doc in docs:
+            self._cachedMetaDatas.cache(doc.path, doc)
+        return docs
+    return cache_create
+
+def create_file(func):
+    def cache_create_file(self, *args, **kw):
+        if not self.caching: return
+        file = func(self, *args, **kw)
+        self._cachedMetaDatas.cache(file.document.path, file.document)
+        return file
+    return cache_create_file
+
+def read(func):
+    def cache_read(self, *args, **kw):
+        if not self.caching: return
+        for doc in func(self, *args, **kw):
+            self._cachedMetaDatas.cache(doc.path, doc)
+            yield doc
+    return cache_read
+
+def update(func):
+    def cache_update(self, *args, **kw):
+        if not self.caching: return
+        docs = list(func(self, *args, **kw))
+        for doc in docs:
+            self._cachedMetaDatas.cache(doc.path, doc)
+        return docs
+    return cache_update
+
+def delete(func):
+    def cache_delete(self, *args, **kw):
+        if not self.caching: return
+        docs = list(func(self, *args, **kw))
+        for doc in docs:
+            if self._cachedMetaDatas.has_key(doc.path):
+                self._cachedMetaDatas.invalidate(doc.path)
+        return docs
+    return cache_delete
+
 class CouchedFile(Debugger):
 
     flags = None
@@ -184,7 +285,7 @@ class CouchedFile(Debugger):
 
         open_args = (self.filesystem.real_path(path), flags)
         if mode != None:
-            mode_arg = (mode,)
+            open_args += (mode,)
 
         try:
           fd = os.open(*open_args)
@@ -196,28 +297,24 @@ class CouchedFile(Debugger):
           raise
 
         try:
-            self.filesystem[path]
-            exists = True
-        except Exception, e:
-            exists = False
-
-        if flags & os.O_CREAT and not exists:
-            self.debug("Creating document %s in database from file %s"
-                       % (path, self.filesystem.real_path(path)))
-
-            stats = os.lstat(self.filesystem.real_path(path))
-            fields = { 'filename' : os.path.basename(path),
-                       'dirpath'  : os.path.dirname(path),
-                       'uid'      : uid,
-                       'gid'      : gid,
-                       'mode'     : mode,
-                       'type'     : "application/x-empty",
-                       'stats'    : stats }
-
-            self.document = self.filesystem.doc_helper.create(**fields)
-
-        else:
             self.document = self.filesystem[path]
+        except Exception, e:
+            if flags & os.O_CREAT:
+                self.debug("Creating document %s in database from file %s"
+                           % (path, self.filesystem.real_path(path)))
+
+                stats = os.lstat(self.filesystem.real_path(path))
+                fields = { 'filename' : os.path.basename(path),
+                           'dirpath'  : os.path.dirname(path),
+                           'uid'      : uid,
+                           'gid'      : gid,
+                           'mode'     : mode,
+                           'type'     : "application/x-empty",
+                           'stats'    : stats }
+
+                self.document = self.filesystem.doc_helper.create(**fields)
+            else:
+                raise e
 
     def close(self, release=True):
         path = os.path.join(self.document.dirpath, self.document.filename)
@@ -273,15 +370,26 @@ class CouchedFileSystem(Debugger):
 
     doc_helper = None
 
-    def __init__(self, mount_point, db_name, server="http://localhost:5984", spnego=False, db_metadatas=False):
+    def __init__(self, mount_point, db_name, server="http://localhost:5984",
+                 spnego=False, db_metadatas=False, fstype="auto", caching=True):
+
         self.mount_point = mount_point
         self.db_metadatas = db_metadatas
+        self.fstype = fstype
+        self.caching = caching
+
+        self._cachedMetaDatas = CacheDict(60)  # Dict to keep database docs in memory during
+        self._cachedRevisions = CacheDict(60)  # a system call sequence to avoid database
+                                               # access overheads.
 
         # Instantiate couchdb document helper
         self.doc_helper = DocumentHelper(SyncDocument, db_name, server, spnego, batch=False)
 
+
     @normpath
+    @create
     def makedirs(self, path, mode, uid=None, gid=None):
+        updated = []
         p = ""
         dirs = path.split(os.sep)[1:]
         for d in dirs:
@@ -289,9 +397,12 @@ class CouchedFileSystem(Debugger):
             try:
                 self[p]
             except OSError, e:
-                self.mkdir(p, mode, uid, gid)
+                updated.extend(self.mkdir(p, mode, uid, gid))
+
+        return updated
 
     @normpath
+    @create
     def mkdir(self, path, mode, uid=None, gid=None):
         '''
         Call type : "Create"
@@ -328,6 +439,7 @@ class CouchedFileSystem(Debugger):
         return updated
 
     @norm2path
+    @create
     def symlink(self, dest, symlink, uid=None, gid=None):
         '''
         Call type : "Create"
@@ -363,6 +475,7 @@ class CouchedFileSystem(Debugger):
         return updated
 
     @normpath
+    @update
     def chmod(self, path, mode):
         '''
         Call type : "Update"
@@ -379,6 +492,7 @@ class CouchedFileSystem(Debugger):
         return self.doc_helper.update(document)
 
     @normpath
+    @update
     def chown(self, path, uid, gid):
         '''
         Call type : "Update"
@@ -396,6 +510,7 @@ class CouchedFileSystem(Debugger):
         return self.doc_helper.update(document)
 
     @normpath
+    @update
     def tag(self, path, tag, remove=False):
         '''
         Call type : "Update"
@@ -411,6 +526,111 @@ class CouchedFileSystem(Debugger):
         return self.doc_helper.update(document)
 
     @normpath
+    @update
+    def setxattr(self, path, key, value=None, db_only=True):
+        '''
+        Call type : "Update"
+        '''
+
+        document = self[path]
+
+        if key == "system.posix_acl_access":
+            if value == None:
+                new_acl = acl.ACL()
+            else:
+                new_acl = acl.ACL.from_xattr(value)
+
+            from ufo.user import user
+            set_acl = False
+
+            old_acl = document.posix_acl
+            # If there is any existing ACL, we compute a 'diff'
+            # between the old ACL and new one to detect the entry to remove
+            s1 = map(repr, old_acl)
+            s2 = map(repr, new_acl)
+            diff = difflib.context_diff(s1, s2)
+            for ace_str in filter(lambda x: x[0] == '-' and x[-1] != '\n', diff):
+                ace = acl.ACE.from_string(ace_str[2:])
+                if ace.kind & acl.ACL_USER or ace.kind & acl.ACL_GROUP:
+                    set_acl = True
+
+            # Now we detect if one of the person to share the file with
+            # is a not a friend yet, in this case we issue a friend request
+            # and do not set the corresponding ACE
+            file_acl = acl.ACL()
+            for ace in new_acl:
+                if ace.kind & acl.ACL_USER:
+                    if ace.qualifier != "public" and not user.friends.has_key(ace.qualifier):
+                        friend = user.pending_friends.get(ace.qualifier)
+                        if not friend:
+                            friend = user.request_friend(ace.qualifier)
+                        friend.pending_shares[document.id] = ace.perms.upper().replace('-', '')
+                        self.debug("Adding %s to the pending shares for %s" % (document.id, ace.qualifier))
+                        user.friend_helper.update(friend)
+                        continue
+
+                    set_acl = True
+
+                elif ace.kind & acl.ACL_GROUP:
+                    set_acl = True
+
+                file_acl.append(ace)
+
+                current = document.dirpath
+                while current != os.sep:
+                    parent = self[current]
+                    if not (parent.mode & stat.S_IXOTH):
+                        self.chmod(current, (self[current].mode & 0777) | stat.S_IXOTH)
+                    current = os.path.dirname(current)
+
+            if value != None:
+                if not set_acl:
+                    return []
+
+                # We compute a new value for the extended attribute
+                value = file_acl.to_xattr()
+                document.mode = (document.mode & ~7) | file_acl.get(acl.ACL_OTHER)._perms
+
+        if not db_only:
+            if value == None:
+                xattr.removexattr(self.real_path(path), key, value)
+            else:
+                if key == "system.posix_acl_access" and self.fstype == "nfs4":
+                    # TODO: Convert the POSIX ACL to an NFS4 ACL using Python bindings
+                    process = subprocess.Popen([ "nfs4_setfacl", "-S", "-", self.real_path(path) ],
+                                               stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                    _, err = process.communicate(file_acl.to_nfs4())
+
+                    if err:
+                        raise OSError(process.returncode, err)
+
+                else:
+                    xattr.setxattr(self.real_path(path), key, value)
+
+        if value == None:
+            del document.xattrs[key]
+        else:
+            if document.xattrs:
+                document.xattrs[key] = eval('u' + repr(value))
+                self.doc_helper.update(document)
+            else:
+                _tuple = { key : eval('u' + repr(value)) }
+                document.xattrs = dict(**_tuple)
+
+        return self.doc_helper.update(document)
+
+    @normpath
+    def getxattr(self, path, key):
+        '''
+        Call type : "Read"
+        '''
+
+        document = self[path]
+
+        return eval(repr(document.xattrs[key])[1:])
+
+    @normpath
+    @update
     def utime(self, path, times):
         '''
         Call type : "Update"
@@ -430,7 +650,8 @@ class CouchedFileSystem(Debugger):
         return self.doc_helper.update(document)
 
     @norm2path
-    def rename(self, old, new):
+    @update
+    def rename(self, old, new, overwrite=False):
         '''
         Call type : "Update"
         '''
@@ -438,7 +659,10 @@ class CouchedFileSystem(Debugger):
         # Updating directory and filename of the document
         document = self[old]
         try:
-            dest = self.doc_helper.by_path(key=new, pk=True)
+            dest = self[new]
+            if not overwrite:
+                raise OSError(errno.EEXIST, os.strerror(errno.EEXIST))
+
         except Exception, e:
             dest = None
 
@@ -459,32 +683,42 @@ class CouchedFileSystem(Debugger):
 
         # Updating directory subtree documents
         if stat.S_ISDIR(document.mode):
-
             # TODO: make this smarter
-            for doc in self.doc_helper.by_path(key=old, pk=True):
+            for doc in self.doc_helper.by_dir_prefix(key=old):
                 doc.dirpath = doc.dirpath.replace(old, new, 1)
                 documents.append(doc)
 
         return self.doc_helper.update(documents)
 
     @normpath
+    @delete
     def unlink(self, path, nodb=False):
         '''
         Call type : "Update"
         '''
+
+        # TODO: Use View Collation to get the file and the shares
+        # in one request
 
         # Firstly remove the file from the filesystem
         os.unlink(self.real_path(path))
 
         if not nodb:
             # Then remove the document from the database
-            self.doc_helper.delete(self[path])
+            doc = self[path]
+            self.doc_helper.delete(doc)
+            return [ doc ]
+
+        return []
 
     @normpath
+    @delete
     def rmdir(self, path, nodb=False, force=False):
         '''
         Call type : "Update"
         '''
+
+        deleted = []
 
         # Firstly remove the file from the filesystem
         if force:
@@ -501,9 +735,13 @@ class CouchedFileSystem(Debugger):
                 # TODO: make this smarter
                 for doc in self.doc_helper.by_dir_prefix(key=path):
                     self.doc_helper.delete(doc)
+                    deleted.append(doc)
 
                 # Then remove the document from the database
                 self.doc_helper.delete(folder)
+                deleted.append(folder)
+
+        return deleted
 
     @normpath
     def stat(self, path):
@@ -514,6 +752,7 @@ class CouchedFileSystem(Debugger):
         return self[path].get_stats()
 
     @normpath
+    @read
     def listdir(self, path):
         '''
         Call type : "Read"
@@ -524,10 +763,12 @@ class CouchedFileSystem(Debugger):
             yield doc
 
     @normpath
+    @create_file
     def open(self, path, flags, uid=None, gid=None, mode=None):
         return CouchedFile(path, flags, uid, gid, mode, self)
 
     @normpath
+    @create
     def populate(self, path):
         '''
         Call type : "Create"
@@ -545,6 +786,49 @@ class CouchedFileSystem(Debugger):
                    'stats'    : stats }
 
         return [ self.doc_helper.create(**fields) ]
+
+    @normpath
+    def walk(self, top, topdown=True, onerror=None, followlinks=False):
+        # Copied from Python 'os' module
+        
+        # We may not have read permission for top, in which case we can't  
+        # get a list of the files the directory contains.  os.path.walk    
+        # always suppressed the exception then, rather than blow up for a  
+        # minor reason when (say) a thousand readable directories are still
+        # left to visit.  That logic is copied here.
+        try:
+            # Note that listdir and error are globals in this module due
+            # to earlier import-*.
+            names = self.doc_helper.by_dir(key=top)
+                                
+        except error, err:
+            if onerror is not None:
+                onerror(err)
+            return
+
+        dirs, nondirs = [], []
+        for name in names:
+            if name.isdir():
+                dirs.append(name)
+            else:
+                nondirs.append(name)
+
+        if topdown:
+            yield self[top], dirs, nondirs
+        for name in dirs:
+            if followlinks or not name.islink():
+                for x in self.walk(name.path, topdown, onerror, followlinks):
+                    yield x
+        if not topdown:
+            yield self[top], dirs, nondirs
+
+    @normpath
+    def exists(self, path):
+        try:
+            self[path]
+            return True
+        except:
+            return False
 
     def real_path(self, path):
         return os.path.join(self.mount_point, path[1:])
@@ -569,11 +853,21 @@ class CouchedFileSystem(Debugger):
 
     @normpath
     def _get(self, path):
-      try:
-        return self.doc_helper.by_path(key=path, pk=True)
+        if self._cachedMetaDatas.isObsolete(path):
+            try:
+                document = self.doc_helper.by_path(key=path, pk=True)
+                self._cachedMetaDatas.cache(path, document)
+                return document
 
-      except DocumentException, e:
+            except DocumentException, e:
+                self._cachedMetaDatas.cache(path, None)
+                raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+        if self._cachedMetaDatas.get(path):
+            return self._cachedMetaDatas.get(path)
+
         raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
 
     def __getitem__(self, path):
       return self._get(path)
+

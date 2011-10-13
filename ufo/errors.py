@@ -205,6 +205,22 @@ class InvalidUserError(PrivateError):
     error = 6011
     format = 'invalid user'
 
+class PendingFriendError(PrivateError):
+    """
+    **6012** Raised when a user attempts to request a friend who is already 
+    in his pending friends list
+
+    For example:
+
+    >>> raise PendingFollowingError()
+    Traceback (most recent call last):
+      ...
+    PendingFollowingError: user is in the pending friends list
+
+    """
+    errno = 6012
+    format = 'user is already in the pending friends list'
+
 ########################################################################
 # File Sharing Errors
 ########################################################################

@@ -36,7 +36,14 @@ class GenericFileSystem(Debugger):
       
         else: # O_RDONLY
             result = 'r'
-      
+
+        try:
+            if flags & os.O_BINARY:
+                result += 'b'
+        except AttributeError, e:
+            # os.O_BINARY only exists on Windows
+            pass
+
         return result
 
     def lstat(self, path):

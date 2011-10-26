@@ -25,7 +25,7 @@ import xattr
 import difflib
 import subprocess
 
-from ufo.utils import MutableStat, MimeType, CacheDict, get_user_infos
+from ufo.utils import MutableStat, CacheDict, get_user_infos
 from ufo.debugger import Debugger
 from ufo.database import *
 import ufo.acl as acl
@@ -48,25 +48,13 @@ class SyncDocument(UTF8Document):
     doctype  = TextField(default="SyncDocument")
     filename = TextField()
     dirpath  = TextField()
-    uid      = IntegerField()
-    gid      = IntegerField()
-    mode     = IntegerField()
     type     = TextField()
     stats    = DictField(Mapping.build(
-                   n_sequence_fields = IntegerField(),
-                   n_unnamed_fields  = IntegerField(),
-                   n_fields   = IntegerField(),
                    st_atime   = FloatField(),
-                   st_blksize = IntegerField(),
-                   st_blocks  = IntegerField(),
                    st_ctime   = FloatField(),
-                   st_dev     = IntegerField(),
                    st_gid     = IntegerField(),
-                   st_ino     = IntegerField(),
                    st_mode    = IntegerField(),
                    st_mtime   = FloatField(),
-                   st_nlink   = IntegerField(),
-                   st_rdev    = IntegerField(),
                    st_size    = LongField(),
                    st_uid     = IntegerField()))
     xattrs   = DictField()
@@ -74,14 +62,19 @@ class SyncDocument(UTF8Document):
     # TODO: Use a dedicated document class for tags
     tags = ListField(TextField())
 
-    def __init__(self, stats=None, **fields):
+    def __init__(self, **fields):
         super(SyncDocument, self).__init__(**fields)
 
-        if stats:
-            self.set_stats(stats)
+        # Handle the virtual properties like 'mode' and 'uid'
+        for key, value in fields.items():
+            if key not in SyncDocument.stats.mapping._fields.keys():
+                setattr(self, key, value)
+
+        if fields.has_key("stats"):
+            self.set_stats(fields["stats"])
 
     def set_stats(self, stat_result):
-        for field in self.stats._fields.keys():
+        for field in SyncDocument.stats.mapping._fields.keys():
             if isinstance(stat_result, dict):
                 self.stats[field] = stat_result[field]
             else:
@@ -89,10 +82,10 @@ class SyncDocument(UTF8Document):
   
     def get_stats(self):
         stat_result = MutableStat()
-        for field in self.stats._fields.keys():
-            if field in ['st_uid', 'st_gid', 'st_mode']:
-                setattr(stat_result, field, getattr(self, field[3:]))
-            elif field == 'st_ino' and self.id:
+        for field in SyncDocument.stats.mapping._fields.keys():
+            # if field in ['st_uid', 'st_gid', 'st_mode']:
+            #     setattr(stat_result, field, getattr(self, field[3:]))
+            if field == 'st_ino' and self.id:
                 setattr(stat_result, field, int(self.id[16:], 16))
             else:
                 setattr(stat_result, field, getattr(self.stats, field))
@@ -107,6 +100,27 @@ class SyncDocument(UTF8Document):
       if tag in self.tags:
         self.tags.remove(tag)
 
+    def __getattr__(self, attr):
+        st_attr = "st_" + attr
+        if SyncDocument.stats.mapping._fields.has_key(st_attr):
+            return self.stats[st_attr]
+        else:
+            return self.__dict__[attr]
+
+    def __setattr__(self, attr, value):
+        if attr == "stats" and type(value) != dict:
+            stat_result = {}
+            for field in SyncDocument.stats.mapping._fields.keys():
+                 stat_result[field] = getattr(value, field)
+            value = stat_result
+        else:
+            st_attr = "st_" + attr
+            if SyncDocument.stats.mapping._fields.has_key(st_attr):
+                self.stats[st_attr] = value
+                return
+
+        object.__setattr__(self, attr, value)
+
     @property
     def posix_acl(self):
 	try:
@@ -117,6 +131,36 @@ class SyncDocument(UTF8Document):
                 return acl.ACL.from_mode(self.stats['st_mode'])
         except:
             return acl.ACL()
+
+    def __str__(self):
+        return '<%s id:%s path:%s type:%s>' % \
+                  (self.doctype,
+                   self.id,
+                   os.path.join(self.dirpath, self.filename),
+                   self.type)
+
+    def __repr__(self):
+        return str(self)
+
+    @property
+    def path(self):
+        return os.path.join(self.dirpath, self.filename)
+
+    @property
+    def gecos(self):
+        if self.type == "application/x-directory":
+            return get_user_infos(uid=self.uid)['fullname']
+        else:
+            return ""
+
+    def isdir(self):
+        return stat.S_ISDIR(self.mode)
+
+    def islink(self):
+        return stat.S_ISLNK(self.mode)
+
+    def isfile(self):
+        return stat.S_ISREG(self.mode)
 
     @ViewField.define('syncdocument')
     def by_path(doc):
@@ -132,13 +176,13 @@ class SyncDocument(UTF8Document):
     @ViewField.define('syncdocument')
     def by_uid(doc):
         if doc['doctype'] == "SyncDocument":
-            yield doc['uid'], doc
+            yield doc['stats']['st_uid'], doc
 
     @ViewField.define('syncdocument')
     def by_uid_and_path(doc):
         from os.path import join
         if doc['doctype'] == "SyncDocument":
-            yield [ doc['uid'] ] + doc['dirpath'].split('/')[1:] + [ doc['filename'] ], doc
+            yield [ doc['stats']['st_uid'] ] + doc['dirpath'].split('/')[1:] + [ doc['filename'] ], doc
 
     @ViewField.define('syncdocument')
     def by_dir(doc):
@@ -182,7 +226,7 @@ class SyncDocument(UTF8Document):
                 acl = ACL.from_xattr(eval(repr(doc['xattrs'][ACL_XATTR])[1:]))
                 for ace in acl:
                     if ace.kind & ACL_USER:
-                        yield [ int(doc['uid']), ace._qualifier, doc['dirpath'] + "/" + doc['filename'] ], doc
+                        yield [ int(doc['stats']['st_uid']), ace._qualifier, doc['dirpath'] + "/" + doc['filename'] ], doc
             except: pass
 
     @ViewField.define('syncdocument')
@@ -197,35 +241,6 @@ class SyncDocument(UTF8Document):
                         yield pwd.getpwuid(ace._qualifier).pw_name, doc
             except: pass
 
-    def __str__(self):
-        return ('<%s id:%s path:%s type:%s>'
-                % (self.doctype,
-                   self.id,
-                   os.path.join(self.dirpath, self.filename),
-                   self.type))
-
-    def __repr__(self):
-        return str(self)
-
-    @property
-    def path(self):
-        return os.path.join(self.dirpath, self.filename)
-
-    @property
-    def gecos(self):
-        if self.type == "application/x-directory":
-            return get_user_infos(uid=self.uid)['fullname']
-        else:
-            return ""
-
-    def isdir(self):
-        return stat.S_ISDIR(self.mode)
-
-    def islink(self):
-        return stat.S_ISLNK(self.mode)
-
-    def isfile(self):
-        return stat.S_ISREG(self.mode)
 
 def create(func):
     def cache_create(self, *args, **kw):
@@ -234,6 +249,7 @@ def create(func):
         for doc in docs:
             self._cachedMetaDatas.cache(doc.path, doc)
         return docs
+    cache_create.op = 'create'
     return cache_create
 
 def create_file(func):
@@ -242,6 +258,7 @@ def create_file(func):
         file = func(self, *args, **kw)
         self._cachedMetaDatas.cache(file.document.path, file.document)
         return file
+    cache_create_file.op = 'create'
     return cache_create_file
 
 def read(func):
@@ -259,7 +276,24 @@ def update(func):
         for doc in docs:
             self._cachedMetaDatas.cache(doc.path, doc)
         return docs
+    cache_update.op = 'update'
     return cache_update
+
+def rename(func):
+    def cache_rename(self, old, new, *args, **kw):
+        rename = False
+        for doc in func(self, old, new, *args, **kw):
+            if not rename:
+                oldkey = old
+                rename = True
+            else:
+                oldkey = os.path.join(doc.dirpath.replace(new, old, 1),
+                                      doc.filename)
+
+            if self._cachedMetaDatas.has_key(oldkey):
+                self._cachedMetaDatas.invalidate(oldkey)
+    cache_rename.op = 'rename'
+    return cache_rename
 
 def delete(func):
     def cache_delete(self, *args, **kw):
@@ -269,6 +303,7 @@ def delete(func):
             if self._cachedMetaDatas.has_key(doc.path):
                 self._cachedMetaDatas.invalidate(doc.path)
         return docs
+    cache_delete.op = 'delete'
     return cache_delete
 
 class CouchedFile(Debugger):
@@ -277,42 +312,50 @@ class CouchedFile(Debugger):
     file_ptr = None
     document = None
     filesystem = None
+    fixed = False
 
     @normpath
-    def __init__(self, path, flags, uid, gid, mode, filesystem):
+    def __init__(self, path, flags, uid, gid, mode, filesystem, document=None):
         self.filesystem = filesystem
         self.flags = flags
 
-        open_args = (self.filesystem.real_path(path), flags)
-        if mode != None:
-            open_args += (mode,)
-
+        if mode:
+            open_args = (path, flags, mode)
+        else:
+            open_args = (path, flags)
+        
         try:
-          fd = os.open(*open_args)
-          self.file_ptr = os.fdopen(fd, self.filesystem.flags_to_stdio(flags))
+          self.file_ptr = self.filesystem.realfs.open(*open_args)
 
         except (OSError, IOError), e:
-          self.debug("Could not open %s (%s), %s"
-                     % (path, self.filesystem.real_path(path), e.message))
+          self.debug("Could not open %s, %s"
+                     % (path, e.message))
           raise
 
         try:
             self.document = self.filesystem[path]
         except Exception, e:
             if flags & os.O_CREAT:
-                self.debug("Creating document %s in database from file %s"
-                           % (path, self.filesystem.real_path(path)))
+                if document:
+                    self.debug("Using document %s" % document)
+                    document._data['_id'] = document.id
+                    self.filesystem.doc_helper.database.save(document._data)
+                    self.document = document
+                    self.fixed = True
+                else:
+                    self.debug("Creating default new document")
 
-                stats = os.lstat(self.filesystem.real_path(path))
-                fields = { 'filename' : os.path.basename(path),
-                           'dirpath'  : os.path.dirname(path),
-                           'uid'      : uid,
-                           'gid'      : gid,
-                           'mode'     : mode,
-                           'type'     : "application/x-empty",
-                           'stats'    : stats }
+                    stats = os.lstat(self.filesystem.real_path(path))
+                    fields = { 'filename' : os.path.basename(path),  
+                               'dirpath'  : os.path.dirname(path),   
+                               'uid'      : uid,
+                               'gid'      : gid,
+                               'mode'     : mode,
+                               'type'     : "application/x-empty",
+                               'stats'    : stats }
 
-                self.document = self.filesystem.doc_helper.create(**fields)
+                    self.document = self.filesystem.doc_helper.create(**fields)
+
             else:
                 raise e
 
@@ -327,11 +370,11 @@ class CouchedFile(Debugger):
             self.debug("Could not close %s (%s), %e" % (path, realpath, e.message))
             raise
 
-        if release and self.flags & (os.O_RDWR | os.O_WRONLY | os.O_TRUNC | os.O_APPEND):
+        if release and not self.fixed and self.flags & (os.O_RDWR | os.O_WRONLY | os.O_TRUNC | os.O_APPEND):
             self.debug("Updating document %s because it has been modified" % path)
 
-            newstats = os.lstat(realpath)
-            mimetype = MimeType(realpath).basic()
+            newstats = self.filesystem.realfs.lstat(path)
+            mimetype = self.filesystem.realfs.get_mime_type(path).basic()
             stats = self.document.get_stats()
 
             self.document.type = mimetype
@@ -378,6 +421,13 @@ class CouchedFileSystem(Debugger):
         self.fstype = fstype
         self.caching = caching
 
+        if fstype == "nfs4":
+            from ufo.fsbackend.nfs4 import NFS4FileSystem
+            self.realfs = NFS4FileSystem(mount_point)
+        else:
+            from ufo.fsbackend import GenericFileSystem
+            self.realfs = GenericFileSystem(mount_point)
+
         self._cachedMetaDatas = CacheDict(60)  # Dict to keep database docs in memory during
         self._cachedRevisions = CacheDict(60)  # a system call sequence to avoid database
                                                # access overheads.
@@ -386,8 +436,8 @@ class CouchedFileSystem(Debugger):
         self.doc_helper = DocumentHelper(SyncDocument, db_name, server, spnego, batch=False)
 
 
-    @normpath
     @create
+    @normpath
     def makedirs(self, path, mode, uid=None, gid=None):
         updated = []
         p = ""
@@ -401,9 +451,9 @@ class CouchedFileSystem(Debugger):
 
         return updated
 
-    @normpath
     @create
-    def mkdir(self, path, mode, uid=None, gid=None):
+    @normpath
+    def mkdir(self, path, mode, uid=None, gid=None, document=None):
         '''
         Call type : "Create"
         '''
@@ -412,27 +462,32 @@ class CouchedFileSystem(Debugger):
         updated = []
 
         # Firstly make the directory on the filesystem
-        os.mkdir(self.real_path(path), mode)
+        self.realfs.mkdir(path, mode)
 
         # Then create the document into the database
-        stats = os.lstat(self.real_path(path))
-        if not uid: uid = stats.st_uid
-        if not gid: gid = stats.st_gid
+        if not document:
+            stats = self.realfs.lstat(path)
+            if not uid: uid = stats.st_uid
+            if not gid: gid = stats.st_gid
+            fields = { 'filename' : os.path.basename(path),
+                       'dirpath'  : os.path.dirname(path),
+                       'uid'      : uid,
+                       'gid'      : gid,
+                       'mode'     : mode | stat.S_IFDIR,
+                       'type'     : "application/x-directory",
+                       'stats'    : stats }
 
-        fields = { 'filename' : os.path.basename(path),
-                   'dirpath'  : os.path.dirname(path),
-                   'uid'      : uid,
-                   'gid'      : gid,
-                   'mode'     : mode | stat.S_IFDIR,
-                   'type'     : "application/x-directory",
-                   'stats'    : stats }
+            updated.append(self.doc_helper.create(**fields))
 
-        updated.append(self.doc_helper.create(**fields))
+        else:
+            document._data['_id'] = document.id
+            self.doc_helper.database.save(document._data)
+            updated.append(document)
 
         # Finally update the stats of the parent directory into the database
         if os.path.dirname(path) != os.sep:
             parent = self[os.path.dirname(path)]
-            parent.set_stats(os.lstat(os.path.dirname(self.real_path(path))))
+            parent.set_stats(self.realfs.lstat(os.path.dirname(path)))
 
             updated.extend(self.doc_helper.update(parent))
         
@@ -447,7 +502,7 @@ class CouchedFileSystem(Debugger):
         updated = []
 
         # Firstly make the symlink on the filesystem
-        os.symlink(dest, self.real_path(symlink))
+        self.realfs.symlink(dest, symlink)
 
         if not uid:
             uid = stats.st_uid
@@ -455,7 +510,7 @@ class CouchedFileSystem(Debugger):
             gid = stats.st_gid
 
         # Then create the document into the database
-        stats = os.lstat(self.real_path(symlink))
+        stats = self.realfs.lstat(symlink)
         fields = { 'filename' : os.path.basename(symlink),
                    'dirpath'  : os.path.dirname(symlink),
                    'uid'      : uid,
@@ -468,14 +523,14 @@ class CouchedFileSystem(Debugger):
 
         # Finally update the stats of the parent directory into the database
         parent = self[os.path.dirname(symlink)]
-        parent.set_stats(os.lstat(os.path.dirname(self.real_path(symlink))))
+        parent.set_stats(self.realfs.lstat(os.path.dirname(symlink)))
 
         updated.extend(self.doc_helper.update(parent))
 
         return updated
 
-    @normpath
     @update
+    @normpath
     def chmod(self, path, mode):
         '''
         Call type : "Update"
@@ -483,7 +538,7 @@ class CouchedFileSystem(Debugger):
 
         if not self.db_metadatas:
             # Firstly make the mode change on the filesystem
-            os.chmod(self.real_path(path), mode)
+            self.realfs.chmod(path, mode)
 
         # Then update the document into the database
         document = self[path]
@@ -491,8 +546,8 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(document)
 
-    @normpath
     @update
+    @normpath
     def chown(self, path, uid, gid):
         '''
         Call type : "Update"
@@ -500,7 +555,7 @@ class CouchedFileSystem(Debugger):
 
         if not self.db_metadatas:
             # Firstly make the uid/gid change on the filesystem
-            os.chown(self.real_path(path), uid, gid)
+            self.realfs.chown(path, uid, gid)
 
         # Then update the document into the database
         document = self[path]
@@ -509,8 +564,8 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(document)
 
-    @normpath
     @update
+    @normpath
     def tag(self, path, tag, remove=False):
         '''
         Call type : "Update"
@@ -525,8 +580,8 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(document)
 
-    @normpath
     @update
+    @normpath
     def setxattr(self, path, key, value=None, db_only=True):
         '''
         Call type : "Update"
@@ -593,19 +648,12 @@ class CouchedFileSystem(Debugger):
 
         if not db_only:
             if value == None:
-                xattr.removexattr(self.real_path(path), key, value)
+                self.realfs.removexattr(path, key)
             else:
-                if key == "system.posix_acl_access" and self.fstype == "nfs4":
-                    # TODO: Convert the POSIX ACL to an NFS4 ACL using Python bindings
-                    process = subprocess.Popen([ "nfs4_setfacl", "-S", "-", self.real_path(path) ],
-                                               stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-                    _, err = process.communicate(file_acl.to_nfs4())
-
-                    if err:
-                        raise OSError(process.returncode, err)
-
+                if key == "system.posix_acl_access":
+                    self.realfs.set_acl(path, file_acl)
                 else:
-                    xattr.setxattr(self.real_path(path), key, value)
+                    self.realfs.setxattr(path, key, value)
 
         if value == None:
             del document.xattrs[key]
@@ -627,10 +675,13 @@ class CouchedFileSystem(Debugger):
 
         document = self[path]
 
+        if key == "system.posix_acl_default":
+            return acl.ACL.from_mode(0700)
+
         return eval(repr(document.xattrs[key])[1:])
 
-    @normpath
     @update
+    @normpath
     def utime(self, path, times):
         '''
         Call type : "Update"
@@ -638,7 +689,7 @@ class CouchedFileSystem(Debugger):
 
         if not self.db_metadatas:
             # Firstly make the times change on the filesystem
-            os.utime(self.real_path(path), times)
+            self.realfs.utime(path, times)
 
         # Then update the document into the database
         document = self[path]
@@ -649,8 +700,8 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(document)
 
+    @rename
     @norm2path
-    @update
     def rename(self, old, new, overwrite=False):
         '''
         Call type : "Update"
@@ -679,7 +730,7 @@ class CouchedFileSystem(Debugger):
             self.unlink(new)
 
         # Firstly rename the file on the filesystem
-        os.rename(self.real_path(old), self.real_path(new))
+        self.realfs.rename(old, new)
 
         # Updating directory subtree documents
         if stat.S_ISDIR(document.mode):
@@ -690,8 +741,8 @@ class CouchedFileSystem(Debugger):
 
         return self.doc_helper.update(documents)
 
-    @normpath
     @delete
+    @normpath
     def unlink(self, path, nodb=False):
         '''
         Call type : "Update"
@@ -701,7 +752,7 @@ class CouchedFileSystem(Debugger):
         # in one request
 
         # Firstly remove the file from the filesystem
-        os.unlink(self.real_path(path))
+        self.realfs.unlink(path)
 
         if not nodb:
             # Then remove the document from the database
@@ -711,8 +762,8 @@ class CouchedFileSystem(Debugger):
 
         return []
 
-    @normpath
     @delete
+    @normpath
     def rmdir(self, path, nodb=False, force=False):
         '''
         Call type : "Update"
@@ -724,7 +775,7 @@ class CouchedFileSystem(Debugger):
         if force:
             shutil.rmtree(self.real_path(path), ignore_errors=True)
         else:
-            os.rmdir(self.real_path(path))
+            self.realfs.rmdir(path)
 
         if not nodb:
             folder = self[path]
@@ -751,31 +802,46 @@ class CouchedFileSystem(Debugger):
 
         return self[path].get_stats()
 
-    @normpath
     @read
+    @normpath
     def listdir(self, path):
         '''
         Call type : "Read"
         '''
 
-        path = os.path.normpath(path)
         for doc in self.doc_helper.by_dir(key=path):
             yield doc
 
     @normpath
-    @create_file
-    def open(self, path, flags, uid=None, gid=None, mode=None):
-        return CouchedFile(path, flags, uid, gid, mode, self)
+    @update  
+    def truncate(self, path, length):
+        document = self[path]
+        real_path = self.real_path(path)
 
+        # Truncate the file
+        fd = os.open(real_path, os.O_WRONLY)
+        os.ftruncate(fd, length)
+        os.close(fd)
+
+        # Update the document stats
+        document.set_stats(os.stat(real_path))
+
+        return self.doc_helper.update(document)
+
+    @create_file
     @normpath
+    def open(self, path, flags, uid=None, gid=None, mode=0700, document=None):
+        return CouchedFile(path, flags, uid, gid, mode, self, document)
+
     @create
+    @normpath
     def populate(self, path):
         '''
         Call type : "Create"
         '''
 
-        stats = os.lstat(self.real_path(path))
-        mimetype = MimeType(self.real_path(path)).basic()
+        stats = self.realfs.lstat(path)
+        mimetype = self.realfs.get_mime_type(path).basic()
 
         fields = { 'filename' : os.path.basename(path),
                    'dirpath'  : os.path.dirname(path),
@@ -830,29 +896,12 @@ class CouchedFileSystem(Debugger):
         except:
             return False
 
-    def real_path(self, path):
-        return os.path.join(self.mount_point, path[1:])
-
-    def flags_to_stdio(self, flags):
-        if flags & os.O_RDWR:
-            if flags & os.O_APPEND:
-                result = 'a+'
-            else:
-                result = 'w+'
-      
-        elif flags & os.O_WRONLY:
-            if flags & os.O_APPEND:
-                result = 'a'
-            else:
-                result = 'w'
-      
-        else: # O_RDONLY
-            result = 'r'
-      
-        return result
-
     @normpath
     def _get(self, path):
+        # The root directory does not exists in the database
+        if path == '/':
+            return RootSyncDocument(self.realfs.lstat(path))
+                  
         if self._cachedMetaDatas.isObsolete(path):
             try:
                 document = self.doc_helper.by_path(key=path, pk=True)
@@ -868,6 +917,32 @@ class CouchedFileSystem(Debugger):
 
         raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
 
+    def copy(self, src, dest, document=None):
+        return self.realfs.copy(src, dest, document)
+
+    def real_path(self, path):
+        return os.path.join(self.mount_point, path[1:])
+
     def __getitem__(self, path):
       return self._get(path)
+
+
+class RootSyncDocument(SyncDocument):
+  '''
+  Class that represent root directory document.
+  '''
+
+  def __init__(self, stats):
+    fixedfields = { 'filename' : "/",
+                    'dirpath'  : "", 
+                    'uid'      : stats.st_uid,
+                    'gid'      : stats.st_uid,
+                    'mode'     : stats.st_mode | stat.S_IFDIR,
+                    'type'     : "application/x-directory",
+                    'stats'    : stats }
+
+    super(RootSyncDocument, self).__init__(**fixedfields)
+
+    self['_id'] = "00000000000000000000000000000000"
+    self['_rev'] = "0-0123456789abcdef0123456789abcdef"
 

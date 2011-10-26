@@ -1,6 +1,8 @@
 import struct
 import pwd
 
+from ufo import config
+
 ACL_EA_VERSION = 0x0002
 
 ACL_XATTR = "system.posix_acl_access"
@@ -36,11 +38,11 @@ nfs4_acl_types = { ACL_UNDEFINED_TAG : "_undefined",
                    ACL_OTHER : "EVERYONE@" }
 
 acl_perms = ( ( ACL_READ, "r" ),
-              ( ACL_WRITE, "w" ),
+              ( ACL_WRITE, "wa" ),
               ( ACL_EXECUTE, "x" ) )
 
 class ACL(list):
-    default_domain = "example.com"
+    default_domain = config.realm.lower()
 
     def __init__(self, *args, **kw):
         super(list, self).__init__(args, kw)

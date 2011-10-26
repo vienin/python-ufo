@@ -172,7 +172,7 @@ class User(Debugger):
             if "W" in share.permissions:
                 ace.permset.write = True
             ace.qualifier = pwd.getpwnam(friend).pw_uid
-            # new_acl.applyto(self.get_file_path(file.path))
+            # new_acl.applyto(self.get_file_path(file.path))
 
         pending_friend.pending_shares = []
         self.friend_helper.update(pending_friend)

@@ -68,13 +68,13 @@ class MutableStat(object):
 
     def __getitem__(self, idx):
         key = self._keys[idx]
-        return self.__dict__[key]
+        return self.__dict__.get(key, getattr(MutableStat, key))
 
     def __getslice__(self, start, end):
         result = []
 
         for key in self._keys[start:end]:
-            result.append(self.__dict__[key])
+            result.append(self.__dict__.get(key, getattr(MutableStat, key)))
 
         return tuple(result)
 
@@ -193,6 +193,10 @@ def get_current_principal(krbccache):
 
 def get_user_infos(login=None, uid=None):
     assert login != None or uid != None
+
+    if type(login) == int:
+        uid = login
+        login = None
 
     if login:
       key = login

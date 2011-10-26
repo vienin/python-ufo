@@ -96,25 +96,26 @@ class FriendSyncDocument(SyncDocument):
 
 
 class BuddySharesSyncDocument(SyncDocument):
-
     @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_unique)
     def sorted_by_provider(doc):
         import pwd
         if doc['doctype'] == 'SyncDocument':
-            yield pwd.getpwuid(doc['uid']).pw_name, 1
+            yield pwd.getpwuid(doc['stats']['st_uid']).pw_name, 1
 
     @classmethod
-    def getDocuments(cls, database, *path):
-        if len(path) > 1:
-            login = pwd.getpwuid(path[0]).pw_name
+    def getDocuments(cls, database, buddy=None, *path):
+        if len(path) > 0:
+            login = get_user_infos(uid=int(buddy))['login']
             for doc in cls.by_dir(database,
-                                  key="/" + "/".join([login] + list(path[1:]))):
+                                  key="/" + "/".join([login] + list(path))):
                 yield doc
-        elif len(path) == 1:
-            login = pwd.getpwuid(path[0]).pw_name
+
+        elif buddy:
+            uid = int(buddy)
+            login = get_user_infos(uid=uid)['login']
             shared_dirs = { }
-            startkey = [ path[0], "/" + login ]
-            endkey = [ path[0] + 1 ]
+            startkey = [ uid, "/" + login ]
+            endkey = [ uid + 1 ]
             for doc in cls.by_uid_and_path(database, startkey=startkey, endkey=endkey):
                 if doc.type == "application/x-directory":
                     shared_dirs[doc.path] = doc
@@ -152,17 +153,19 @@ class MySharesSyncDocument(SyncDocument):
             except: pass
 
     @classmethod
-    def getDocuments(cls, database, *path):
-        if len(path) > 1:
-            login = pwd.getpwuid(path[0]).pw_name
+    def getDocuments(cls, database, buddy=None, *path):
+        if len(path) > 0:
+            login = get_user_infos(uid=int(buddy))['login']
             for doc in cls.by_dir(database,
-                                  key="/" + "/".join([login] + list(path[1:]))):
+                                  key="/" + "/".join([login] + list(path))):
                 yield doc
-        elif len(path) == 1:
+        elif buddy:
+            uid = int(buddy)
+            login = get_user_infos(uid=uid)['login']
             shared_dirs = {}
-            provider_id = pwd.getpwnam(database.name).pw_uid
-            startkey = [ provider_id, int(path[0]) ]
-            endkey = [ provider_id, int(path[0]) + 1 ]
+            provider_id = get_user_infos(login=database.name)['uid']
+            startkey = [ provider_id, uid ]
+            endkey = [ provider_id, uid + 1 ]
             for doc in SyncDocument.by_provider_and_participant(database,
                                                                 startkey=startkey,
                                                                 endkey=endkey):
@@ -193,7 +196,7 @@ class TaggedSyncDocument(SyncDocument):
     def sorted_by_tag(doc):
         if doc['doctype'] == "SyncDocument":
             for tag in doc['tags']:
-                yield [ doc['uid'], tag ], 1
+                yield [ doc['stats']['st_uid'], tag ], 1
 
     @classmethod
     def getDocuments(cls, database, tag=None, uid=None):

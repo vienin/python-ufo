@@ -132,21 +132,25 @@ class WebDAVFileSystem(GenericFileSystem):
     def real_path(self, path):
         return path
 
-    @davexcept_to_errno
-    def mkdir(self, path, mode, document=None):
-        col = WebdavClient.CollectionStorer(self.url + os.path.dirname(path), self.connection)
-        extra_hdrs = {}
+    @staticmethod
+    def _document_to_headers(document):
+        headers = {}
         if document:
-            extra_hdrs["Sync-Document"] = base64.b64encode(simplejson.dumps(document._to_json(document)))
-        col.addCollection(os.path.basename(path), extra_hdrs=extra_hdrs)
+            headers["Sync-Document"] = base64.b64encode(simplejson.dumps(document._to_json(document)))
+        return headers
 
     @davexcept_to_errno
-    def rmdir(self, path):
+    def mkdir(self, path, mode, document=None, *args, **kw):
+        col = WebdavClient.CollectionStorer(self.url + os.path.dirname(path), self.connection)
+        col.addCollection(os.path.basename(path), extra_hdrs=self._document_to_headers(document))
+
+    @davexcept_to_errno
+    def rmdir(self, path, *args, **kw):
         col = WebdavClient.CollectionStorer(self.url + os.path.dirname(path), self.connection)
         col.deleteResource(os.path.basename(path))
 
     @davexcept_to_errno
-    def unlink(self, path):
+    def unlink(self, path, *args, **kw):
         col = WebdavClient.CollectionStorer(self.url + os.path.dirname(path), self.connection)
         col.deleteResource(os.path.basename(path))
 
@@ -173,12 +177,9 @@ class WebDAVFileSystem(GenericFileSystem):
     @davexcept_to_errno
     def copy(self, src, dest, document=None):
         storer = WebdavClient.ResourceStorer(self.url + dest, self.connection)
-        extra_hdrs = {}
-        if document:
-            extra_hdrs["Sync-Document"] = base64.b64encode(simplejson.dumps(document._to_json(document)))
-        storer.uploadFile(src, extra_hdrs=extra_hdrs)
+        storer.uploadFile(src, extra_hdrs=self._document_to_headers(document))
 
-    def get_mime_type(self, path): 
+    def get_mime_type(self, path):
         raise Exception("Not implemented")
 
     @davexcept_to_errno
@@ -193,19 +194,15 @@ class WebDAVFileSystem(GenericFileSystem):
         storer = WebdavClient.ResourceStorer(self.url + path, self.connection)
         storer.getAcl()
 
-    def setxattr(self, path, key, value):
-        raise Exception("Not implemented")
-
-    def removexattr(self, path, key):
-        raise Exception("Not implemented")
-
-    def getxattr(self, path, key):
-        raise Exception("Not implemented")
-
     @davexcept_to_errno
     def rename(self, old, new):
         storer = WebdavClient.ResourceStorer(self.url + old, self.connection)
         storer.move(self.url + new)
+
+    @davexcept_to_errno
+    def symlink(self, src, dst, document=None):
+        storer = WebdavClient.ResourceStorer(self.url + dst, self.connection)
+        storer.mkRedirectRef(self.url + src, extra_hdrs=self._document_to_headers(document))
 
     @davexcept_to_errno
     def open(self, path, flags, mode=0700):
@@ -230,4 +227,13 @@ class WebDAVFileSystem(GenericFileSystem):
         if lock:
             del self.locks[path]
             return storer.unlock(lock)
+
+    def setxattr(self, path, key, value):
+        raise Exception("Not implemented")
+
+    def removexattr(self, path, key):
+        raise Exception("Not implemented")
+
+    def getxattr(self, path, key):
+        raise Exception("Not implemented")
 

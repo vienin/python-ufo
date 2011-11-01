@@ -495,7 +495,7 @@ class CouchedFileSystem(Debugger):
 
     @norm2path
     @create
-    def symlink(self, dest, symlink, uid=None, gid=None):
+    def symlink(self, dest, symlink, uid=None, gid=None, document=None):
         '''
         Call type : "Create"
         '''
@@ -504,22 +504,28 @@ class CouchedFileSystem(Debugger):
         # Firstly make the symlink on the filesystem
         self.realfs.symlink(dest, symlink)
 
+        stats = self.realfs.lstat(symlink)
         if not uid:
             uid = stats.st_uid
         if not gid:
             gid = stats.st_gid
 
-        # Then create the document into the database
-        stats = self.realfs.lstat(symlink)
-        fields = { 'filename' : os.path.basename(symlink),
-                   'dirpath'  : os.path.dirname(symlink),
-                   'uid'      : uid,
-                   'gid'      : gid,
-                   'mode'     : 0777 | stat.S_IFLNK,
-                   'type'     : "application/x-symlink",
-                   'stats'    : stats }
-    
-        updated.append(self.doc_helper.create(**fields))
+        if not document:
+            # Then create the document into the database
+            fields = { 'filename' : os.path.basename(symlink),
+                       'dirpath'  : os.path.dirname(symlink),
+                       'uid'      : uid,
+                       'gid'      : gid,
+                       'mode'     : 0777 | stat.S_IFLNK,
+                       'type'     : "application/x-symlink",
+                       'stats'    : stats }
+
+            updated.append(self.doc_helper.create(**fields))
+
+        else:
+            document._data['_id'] = document.id
+            self.doc_helper.database.save(document._data)
+            updated.append(document)
 
         # Finally update the stats of the parent directory into the database
         parent = self[os.path.dirname(symlink)]

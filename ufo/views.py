@@ -161,7 +161,6 @@ class MySharesSyncDocument(SyncDocument):
                 yield doc
         elif buddy:
             uid = int(buddy)
-            login = get_user_infos(uid=uid)['login']
             shared_dirs = {}
             provider_id = get_user_infos(login=database.name)['uid']
             startkey = [ provider_id, uid ]

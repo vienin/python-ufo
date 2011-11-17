@@ -40,8 +40,17 @@ def norm2path(func):
         return func(self, os.path.normpath(path), os.path.normpath(path2), *args, **kw)
     return handler
 
+def _wrap_bypass(row):
+    return row
+
 def _reduce_sum(keys, values):
-    return sum(values)
+    size = 0
+    for value in values:
+        if type(value) == int:
+            size += value
+        else:
+            size += value['stats']['st_size']
+    return size
 
 class SyncDocument(UTF8Document):
 
@@ -189,7 +198,7 @@ class SyncDocument(UTF8Document):
         if doc['doctype'] == "SyncDocument":
             yield doc['dirpath'], doc
 
-    @ViewField.define('syncdocument')
+    @ViewField.define('syncdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum, reduce=False)
     def by_dir_prefix(doc):
         from os import sep
         from os.path import dirname
@@ -922,6 +931,10 @@ class CouchedFileSystem(Debugger):
             return self._cachedMetaDatas.get(path)
 
         raise OSError(errno.ENOENT, os.strerror(errno.ENOENT))
+
+    @normpath
+    def du(self, path):
+        return self.doc_helper.by_dir_prefix(key=path, pk=True, reduce=True)['value']
 
     def copy(self, src, dest, document=None):
         return self.realfs.copy(src, dest, document)

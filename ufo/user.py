@@ -1,23 +1,31 @@
 import os
-import pwd
 import posix1e
 from new import instancemethod
 import ufo.config as config
-from ufo.filesystem import DocumentHelper, SyncDocument
+from ufo.database import DocumentHelper
 from ufo.constants import Notification, FriendshipStatus
 from ufo.sharing import FriendDocument
 from ufo.debugger import Debugger
 from ufo.errors import *
 
 class FriendFilter:
-    def __init__(self, status):
-        self.status = status
+    def __init__(self, key="login", **kw):
+        self.kw = kw
+        self.key = key
+
     def __call__(self, *args):
         def friend_filter_func(_self):
             items = { }
             for login, friend in _self.contacts.items():
-                if friend.status == self.status:
-                    items[login] = friend
+                match = True
+                for key, value in self.kw.items():
+                    if getattr(friend, key) != value:
+                        match = False
+                        break
+
+                if match:
+                    items[getattr(friend, self.key)] = friend
+
             return items
         return friend_filter_func
 
@@ -40,20 +48,26 @@ class Friend(Debugger):
     def __setitem__(self, index, value):
         self.doc[index] = value
 
-class User(Debugger):
-    def __init__(self, uid=None, login=None, dry_run=False):
-        if (not uid and not login):
-            raise Exception("You must specify either a uid or a login")
+class User(Friend):
+    _user_cache = {}
+    _contacts = None
 
+    def __init__(self, db, login, dry_run=False):
         if not login:
-            login = pwd.getpwuid(uid).pw_name
-        elif not uid:
-            uid = pwd.getpwnam(login).pw_uid
+            raise Exception("You need to specify a login")
+
+        friend_helper = DocumentHelper(FriendDocument, db)
+        document = User._user_cache.get(login)
+        if not document:
+            document = friend_helper.by_login(key=login, pk=True)
+            User._user_cache[login] = document
+        Friend.__init__(self, document)
 
         self.login = login
-        self.uid = uid
-        self.friend_helper = DocumentHelper(FriendDocument, login)
-        self.sync_helper = DocumentHelper(SyncDocument, login)
+        self.friend_helper = friend_helper
+
+        from ufo.filesystem import SyncDocument
+        self.sync_helper = DocumentHelper(SyncDocument, db)
 
         if dry_run:
             def harmless_create(*args, **kw):
@@ -91,14 +105,18 @@ class User(Debugger):
             raise BadFriendshipStatus()
 
     def create_friend(self, friend, status):
-        return Friend(self.friend_helper.create(login=unicode(friend),
-                                                status=status))
+        document = self.friend_helper.create(login=unicode(friend),
+                                             status=status)
+        User._user_cache[friend] = document
+        return Friend(document)
 
     def remove_friend(self, friend):
         friendship_status = self.get_friendship_status(friend)
 
         if friendship_status in (FriendshipStatus.FRIEND, FriendshipStatus.PENDING_FRIEND):
             self.friend_helper.delete(self.contacts[friend])
+            if User._user_cache.has_key(friend):
+                del User._user_cache[friend]
         else:
             raise BadFriendshipStatus()
 
@@ -171,7 +189,7 @@ class User(Debugger):
                 ace.permset.read = True
             if "W" in share.permissions:
                 ace.permset.write = True
-            ace.qualifier = pwd.getpwnam(friend).pw_uid
+            ace._qualifier = get_user_infos(login=friend)['uid']
             # new_acl.applyto(self.get_file_path(file.path))
 
         pending_friend.pending_shares = []
@@ -198,24 +216,35 @@ class User(Debugger):
 
     @property
     def contacts(self):
-        if not hasattr(self, '_contacts'):
-            return dict([ ( doc.login, Friend(doc) ) for doc in self.friend_helper.by_login() ])
-        return self._contacts
+        if not User._contacts:
+            contacts = {}
+            for doc in self.friend_helper.by_login():
+                User._user_cache[doc.login] = doc
+                contacts[doc.login] = Friend(doc)
+            User._contacts = contacts
+        return User._contacts
 
     @property
-    @FriendFilter(FriendshipStatus.PENDING_FRIEND)
+    @FriendFilter(status=FriendshipStatus.PENDING_FRIEND)
     def pending_friends(self): pass
 
     @property
-    @FriendFilter(FriendshipStatus.FRIEND)
+    @FriendFilter(status=FriendshipStatus.FRIEND)
     def friends(self): pass
 
     @property
-    @FriendFilter(FriendshipStatus.BLOCKED_USER)
+    @FriendFilter(status=FriendshipStatus.BLOCKED_USER)
     def blocked_users(self): pass
+
+    @property
+    @FriendFilter(key='uid')
+    def friends_id(self): pass
 
 class LazyUser:
     def __getattr__(self, attr):
-        return getattr(User(login=os.environ.get("REMOTE_USER", os.environ.get("USER"))), attr)
-    
+        login = os.environ.get("REMOTE_USER", os.environ.get("USER"))
+        return getattr(User(db=DocumentHelper(FriendDocument, login).database,
+                            login=login),
+                       attr)
+
 user = LazyUser()

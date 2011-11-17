@@ -17,15 +17,20 @@
 '''UFO file synchronization client library.'''
 
 
-from database import Document, TextField, ViewField, DictField
+from database import Document, TextField, ViewField, DictField, IntegerField
 from constants import Notification, FriendshipStatus
 
 class FriendDocument(Document):
 
     doctype = TextField(default="FriendDocument")
 
-    status = TextField()
-    login  = TextField()
+    status    = TextField()
+    login     = TextField()
+    uid       = IntegerField()
+    gid       = IntegerField()
+    firstname = TextField()
+    lastname  = TextField()
+
     pending_shares = DictField()
 
     @ViewField.define('friend')

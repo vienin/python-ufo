@@ -26,7 +26,7 @@ class NullAuthenticator(Debugger):
 
     def bind(self, conn, service="HTTP", host=""):
         if not host:
-            host = urlparse.urlparse(conn.host).hostname
+            host = conn.host
         def endheaders(_self, body=None):
             self.ensure_login()
 
@@ -46,7 +46,7 @@ class NullAuthenticator(Debugger):
 
 class SPNEGOAuthenticator(NullAuthenticator):
     def __init__(self):
-        Authenticator.__init__(self)
+        NullAuthenticator.__init__(self)
 
     def login(self):
         # TODO: get TGT ticket from credentials

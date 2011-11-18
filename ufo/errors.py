@@ -293,3 +293,16 @@ class UnknownUserError(PrivateError):
     errno = 6205
     format = 'unknown problem occurred'
 
+########################################################################
+# Authentication errors
+########################################################################
+class AuthenticationError(PrivateError):
+    """
+    Generic authentication error
+    """
+    errno = 6300
+    format = 'authentication failed'
+
+class InvalidAuthenticationMethod(AuthenticationError):
+    errno = 6301
+    format = 'invalid authentication method %(method)s'

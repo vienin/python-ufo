@@ -18,14 +18,16 @@
 
 import os
 import socket
+import new
 import kerberos as k
 from uuid import uuid4
 from urlparse import urlsplit
 
+import ufo.auth
 from debugger import Debugger
 from errors import ConflictError
 
-from couchdb.http import ResourceNotFound, ResourceConflict
+from couchdb.http import ResourceNotFound, ResourceConflict, Session
 from couchdb.client import Server
 from couchdb.design import ViewDefinition
 from couchdb.mapping import *
@@ -111,28 +113,48 @@ class DocumentHelper(Debugger):
 
     batchmode = False
 
-    def __init__(self, doc_class, db_name, server="http://localhost:5984", spnego=False, batch=False):
+    def __init__(self, doc_class, db, server="http://localhost:5984", auth=None, batch=False):
         try:
             # Creating server object
             if not couchdb_servers.has_key(server):
-                couchdb_servers[server] = (Server(server, spnego=spnego), {})
+                couchdb_servers[server] = (Server(server), {})
+
+            def _get_connection(self, url):
+                conn = Session._get_connection(self, url)
+                auth.bind(conn, service="couchdb")
+                return conn
 
             self.server, databases = couchdb_servers[server]
 
+            if auth:
+                # Hook the _get_connection method to used authenticated requests
+                self.server.resource.session._get_connection = new.instancemethod(_get_connection,
+                                                                                  self.server.resource.session)
+
             # Creating database if needed
-            if databases.has_key(db_name):
-                self.database = databases[db_name]
+            if type(db) == str:
+                if databases.has_key(db):
+                    self.database = databases[db]
+                else:
+                    try:
+                        self.database = self.server[db]
+                    except:
+                        raise
+                        self.database = self.server.create(db)
+                    finally:
+                        databases[db] = self.database
+
+                    if auth:
+                        # Hook the _get_connection method again
+                        self.database.resource.session._get_connection = new.instancemethod(_get_connection,
+                                                                                            self.database.resource.session)
+
             else:
-                try:
-                    self.database = self.server[db_name]
-                except:
-                    self.database = self.server.create(db_name)
-                finally:
-                    databases[db_name] = self.database
+                self.database = db
 
         except socket.error, e:
             raise DocumentException("Unable to create database '%s' on %s (%s)"
-                                    % (db_name, server, e.message))
+                                    % (db, server, e.message))
 
         self.doc_class = doc_class
 
@@ -205,14 +227,15 @@ class DocumentHelper(Debugger):
         opts["type"] = self.doc_class.__name__
         return self.database.changes(**opts)
 
-    def replicate(self, db_name, server="http://localhost:5984", spnego=False, reverse=False, **opts):
-        if spnego:
+    def replicate(self, db_name, server="http://localhost:5984", auth=None, reverse=False, **opts):
+        if auth:
+            # The connection for the replication is created by the CouchDB server
+            # but we can pass our authentication headers.
+            # TODO: handle credentials expiration
             db_uri = urlsplit(server).hostname
-            result, self.context = k.authGSSClientInit("HTTP@%s" % db_uri)
-            result = k.authGSSClientStep(self.context, "")
-            response = k.authGSSClientResponse(self.context)
             dest = { "url" : server + "/" + db_name,
-                     "headers" : { "Authorization" : "Negotiate %s" % response } }
+                     "headers" : auth.get_headers("couchdb", db_uri) }
+        
         else:
             dest = server + "/" + db_name
 

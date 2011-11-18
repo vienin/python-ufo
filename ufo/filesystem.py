@@ -403,7 +403,7 @@ class CouchedFileSystem(Debugger):
     doc_helper = None
 
     def __init__(self, mount_point, db_name, server="http://localhost:5984",
-                 spnego=False, db_metadatas=False, fstype="auto", caching=True):
+                 auth=None, db_metadatas=False, fstype="auto", caching=True):
 
         self.mount_point = mount_point
         self.db_metadatas = db_metadatas
@@ -422,7 +422,7 @@ class CouchedFileSystem(Debugger):
                                                # access overheads.
 
         # Instantiate couchdb document helper
-        self.doc_helper = DocumentHelper(SyncDocument, db_name, server, spnego, batch=False)
+        self.doc_helper = DocumentHelper(SyncDocument, db_name, server, auth=auth, batch=False)
 
 
     @create

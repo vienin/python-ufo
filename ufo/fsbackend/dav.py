@@ -8,6 +8,7 @@ import base64
 import pwd
 
 import ufo.acl as acl
+import ufo.auth
 from ufo.fsbackend import GenericFileSystem
 from ufo.utils import MutableStat
 
@@ -120,14 +121,13 @@ class WebDAVFile:
 
 
 class WebDAVFileSystem(GenericFileSystem):
-    def __init__(self, url, spnego=True):
+    def __init__(self, url, auth=None):
         self.url = url
         self.client = WebdavClient.CollectionStorer(url)
         self.connection = self.client.connection
         self.locks = {}
-        hostname = urlparse.urlsplit(url).hostname
-        if spnego:
-            self.client.connection.addSPNEGOAuthorization("HTTP", hostname)
+        if auth:
+            auth.bind(self.connection, "webdav")
 
     def real_path(self, path):
         return path

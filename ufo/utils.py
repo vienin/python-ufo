@@ -17,23 +17,11 @@
 import os
 import sys
 import time
-import krbV
-import pwd
 import magic
 import string
-import random
-import syslog
-import traceback
-
-import xmlrpclib as rpc
 
 from threading import RLock
-
-import exceptions
-from ufo import errors
-
-from ufo.debugger import Debugger
-from ufo import config
+from ufo.user import user
 
 class MutableStat(object):
     '''
@@ -130,67 +118,6 @@ class CacheDict(dict):
     self._accesslock.release()
 
 
-class CallProxy(object):
-    def __init__(self, func, meta):
-        self.func = func
-        self.meta = meta
-
-    def __call__(self, *args, **kw):
-        return self.func(self.meta, *args, **kw)
-
-
-class ComponentProxy(object):
-    def __init__(self, component, host = "http://localhost/xmlrpc", transport=None, meta = {}, ufo_in_server=None):
-        meta = meta.copy()
-        if not meta.has_key("apache_env") and os.environ.has_key("KRB5CCNAME"):
-            meta["apache_env"] = { "KRB5CCNAME" : os.environ["KRB5CCNAME"] }
-        self.meta = meta
-        if ufo_in_server == None:
-            ufo_in_server = config.ufo_in_server
-        self.ufo_in_server = ufo_in_server
-        if not ufo_in_server:
-            if not transport:
-                from ipalib.rpc import KerbTransport
-                transport = KerbTransport()
-            self.server = rpc.Server(host, transport)
-            self.component = getattr(self.server, component.split('.')[-1].lower())
-        else:
-            mod_name, klass_name = get_mod_func(component)
-            klass = getattr(import_module(mod_name), klass_name)
-            self.component = klass()
-
-    def __getattr__(self, name):
-        if self.ufo_in_server:
-            return CallProxy(getattr(self.component, name), self.meta)
-        else:
-            return getattr(self.component, name) 
-
-
-def random_string(dir=None):
-    ''' 
-    Returns a random string with 10 chars 
-    Example : zwEeymTWdh
-    '''
-    random.seed()
-    d = [random.choice(string.letters) for x in xrange(10)]
-    if (dir == None):
-        return "".join(d)
-    else:
-        # if dir='/tmp///' we return some thing like '/tmp/zwEeymTWdh'
-        return (str(dir).rstrip('/') + 
-                '/' + 
-                ''.join(d)
-                )
-
-def get_current_principal(krbccache):
-    """
-    @returns : principal name. Example : 'rachid@ALPHA.AGORABOX.ORG'
-    """
-    ctx = krbV.default_context()
-    ccache = krbV.CCache(name=krbccache, context=ctx)
-    cprinc_name = ccache.principal().name
-    return unicode(cprinc_name)
-
 def get_user_infos(login=None, uid=None):
     assert login != None or uid != None
 
@@ -198,94 +125,66 @@ def get_user_infos(login=None, uid=None):
         uid = login
         login = None
 
-    if login:
-      key = login
-      function = pwd.getpwnam
-    else:
-      key = uid
-      function = pwd.getpwuid
-
-    return { 'login'    : function(key).pw_name,
-             'fullname' : function(key).pw_gecos,
-             'uid'      : function(key).pw_uid,
-             'gid'      : function(key).pw_gid }
-
-def krb5principal(func):
-
-  def wrapper(*__args, **__kwargs):
-    _self = __args[0]
-    _meta = __args[1]
-
-    os.environ["KRB5CCNAME"] = _meta['apache_env'].get('KRB5CCNAME')
-    try:
-        principal = _meta['apache_env'].get('REMOTE_USER').split('@')[0]
-    except Exception, e:
-        principal = get_current_principal(_meta['apache_env'].get('KRB5CCNAME')).split('@')[0]
-
-    return func.__call__(_self, _meta, principal, *__args[2:], **__kwargs)
-
-  return wrapper
-
-def fault_to_exception(fault):
-    err = fault
     try:
         try:
-            exception_type, exception_message = fault.faultString.split("'>:")
-        except ValueError, e:
-            exception_type, exception_message = fault.faultString.split("'>,")
+            import pwd
+            import grp
 
-        try:
-            exception_type = exception_type.split("<class '")[1].split(".")[-1]
-        except IndexError, e:
-            exception_type = exception_type.split("<type '")[1].split(".")[-1]
+            if login:
+                pw = pwd.getpwnam(login)
+            else:
+                pw = pwd.getpwuid(uid)
 
-        for module in (errors, exceptions):
-            if hasattr(module, exception_type):
-                err = getattr(module, exception_type).__call__(fault.faultCode, exception_message)
+            try:
+                firstname, lastname = pw.pw_gecos.split(' ')
+            except:
+                firstname = pw.pw_gecos
+                lastname = ""
 
-    except Exception, e:
-        raise
+            groups = [ pw.pw_gid ]
 
-    return err
+            for group in grp.getgrall():
+                if pw.pw_name in group.gr_mem:
+                    groups.append(group.gr_gid)
 
-# Those functions were taken from the Django framework
-def _resolve_name(name, package, level):
-    """Return the absolute name of the module to be imported."""
-    if not hasattr(package, 'rindex'):
-        raise ValueError("'package' not set to a string")
-    dot = len(package)
-    for x in xrange(level, 1, -1):
-        try:
-            dot = package.rindex('.', 0, dot)
-        except ValueError:
-            raise ValueError("attempted relative import beyond top-level "
-                              "package")
-    return "%s.%s" % (package[:dot], name)
+            return { 'login' : pw.pw_name,
+                     'uid' : pw.pw_uid,
+                     'gid' : pw.pw_gid,
+                     'fullname' : pw.pw_gecos,
+                     'groups' : groups }
 
-def import_module(name, package=None):
-    """Import a module.
+        except:
+            if login:
+                if user.login == login:
+                    friend = user
+                else:
+                    friend = user.friends[login]
 
-    The 'package' argument is required when performing a relative import. It
-    specifies the package to use as the anchor point from which to resolve the
-    relative import to an absolute import.
+            else:
+                if user.uid == uid:
+                    friend = user
+                else:
+                    friend = user.friends_id[uid]
 
-    """
-    if name.startswith('.'):
-        if not package:
-            raise TypeError("relative imports require the 'package' argument")
-        level = 0
-        for character in name:
-            if character != '.':
-                break
-            level += 1
-        name = _resolve_name(name[level:], package, level)
-    __import__(name)
-    return sys.modules[name]
+            fullname = ""
+            if friend.firstname:
+                fullname += friend.firstname
 
-def get_mod_func(callback):
-    try:
-        dot = callback.rindex('.')
-    except ValueError:
-        return callback, ''
-    return callback[:dot], callback[dot+1:]
+            if friend.lastname:
+                fullname += " " + friend.lastname
 
+            return { 'login' : friend.login,
+                     'uid' : friend.uid,
+                     'gid' : friend.gid,
+                     'fullname' : fullname,
+                     'groups' : [] }
+
+    except:
+        if not login: login = "nobody"
+        if not uid: uid = -1
+
+        return { 'login' : login,
+                 'uid' : uid,
+                 'gid' : uid,
+                 'fullname' : 'The one who talks loud to say nothing',
+                 'groups' : [] }

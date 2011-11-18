@@ -1,7 +1,5 @@
 import struct
-import pwd
-
-from ufo import config
+from ufo.utils import get_user_infos
 
 ACL_EA_VERSION = 0x0002
 
@@ -192,13 +190,13 @@ class ACE:
     def __repr__(self):
         qualifier = ""
         if self._qualifier != (1 << 32) - 1:
-            qualifier = pwd.getpwuid(self._qualifier).pw_name
+            qualifier = get_user_infos(uid=self._qualifier)['login']
 
         return "%s:%s:%s" % (acl_types[self.kind], qualifier, self.perms)
 
     def to_nfs4(self):
         if self._qualifier != (1 << 32) - 1:
-            qualifier = pwd.getpwuid(self._qualifier).pw_name + '@' + ACL.default_domain
+            qualifier = get_user_infos(uid=self._qualifier)['login'] + '@' + ACL.default_domain
         else:
             qualifier = nfs4_acl_types[self.kind]
         return "A::%s:%s" % (qualifier, self.nfs4_perms)
@@ -217,7 +215,7 @@ class ACE:
             if value == kind or value[0] == kind:
                 if key == ACL_USER_OBJ and qualifier:
                     key = ACL_USER
-                    _qualifier = pwd.getpwnam(qualifier).pw_uid
+                    _qualifier = get_user_infos(login=qualifier)['uid']
                 elif key == ACL_GROUP_OBJ and qualifier:
                      key = ACL_GROUP
                      _qualifier = 0

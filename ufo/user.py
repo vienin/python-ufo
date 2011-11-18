@@ -35,10 +35,10 @@ class Friend(Debugger):
         return getattr(self.doc, attr)
 
     def __setattr__(self, attr, value):
-        if attr == "doc":
-            self.__dict__[attr] = value
-        else:
+        if hasattr(FriendDocument, attr):
             setattr(self.doc, attr, value)
+        else:
+            self.__dict__[attr] = value
 
     def __getitem__(self, index):
         return self.doc[index]
@@ -50,15 +50,18 @@ class User(Friend):
     _user_cache = {}
     _contacts = None
 
-    def __init__(self, db, login, dry_run=False):
+    def __init__(self, db, login, dry_run=False, reuse_cache=False):
         if not login:
             raise Exception("You need to specify a login")
 
+        if not reuse_cache:
+            self._user_cache = {}
+
         friend_helper = DocumentHelper(FriendDocument, db)
-        document = User._user_cache.get(login)
+        document = self._user_cache.get(login)
         if not document:
             document = friend_helper.by_login(key=login, pk=True)
-            User._user_cache[login] = document
+            self._user_cache[login] = document
         Friend.__init__(self, document)
 
         self.login = login
@@ -105,7 +108,7 @@ class User(Friend):
     def create_friend(self, friend, status):
         document = self.friend_helper.create(login=unicode(friend),
                                              status=status)
-        User._user_cache[friend] = document
+        self._user_cache[friend] = document
         return Friend(document)
 
     def remove_friend(self, friend):
@@ -113,8 +116,8 @@ class User(Friend):
 
         if friendship_status in (FriendshipStatus.FRIEND, FriendshipStatus.PENDING_FRIEND):
             self.friend_helper.delete(self.contacts[friend])
-            if User._user_cache.has_key(friend):
-                del User._user_cache[friend]
+            if self._user_cache.has_key(friend):
+                del self._user_cache[friend]
         else:
             raise BadFriendshipStatus()
 
@@ -218,7 +221,7 @@ class User(Friend):
         if not User._contacts:
             contacts = {}
             for doc in self.friend_helper.by_login():
-                User._user_cache[doc.login] = doc
+                self._user_cache[doc.login] = doc
                 contacts[doc.login] = Friend(doc)
             User._contacts = contacts
         return User._contacts
@@ -243,7 +246,7 @@ class LazyUser:
     def __getattr__(self, attr):
         login = os.environ.get("REMOTE_USER", os.environ.get("USER"))
         return getattr(User(db=DocumentHelper(FriendDocument, login).database,
-                            login=login),
+                            login=login, reuse_cache=True),
                        attr)
 
 user = LazyUser()

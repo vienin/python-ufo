@@ -77,14 +77,13 @@ class FriendSyncDocument(SyncDocument):
 
     @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum)
     def sorted_by_login(doc):
-        if doc['doctype'] == 'FriendDocument' and doc['status'] != 'BLOCKED_USER':
+        if doc['doctype'] == 'FriendDocument' and doc.get('status') != 'BLOCKED_USER':
             yield doc['login'], 1
 
     @classmethod
     def getDocuments(cls, database):
         for row in cls.sorted_by_login(database, group=True):
             if row['key'] != database.name:
-                # Retrieve provider infos from gss api
                 infos = utils.get_user_infos(row['key'])
                 #yield cls(filename=infos['fullname'],
                 yield cls(filename=infos['login'],

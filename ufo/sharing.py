@@ -40,7 +40,7 @@ class FriendDocument(Document):
 
     @ViewField.define('friend')
     def by_login_and_status(doc):
-        if doc['doctype'] == 'FriendDocument':
+        if doc['doctype'] == 'FriendDocument' and doc.has_key('status'):
             yield [doc['login'], doc['status']], doc
 
     @ViewField.define('friend')
@@ -49,7 +49,7 @@ class FriendDocument(Document):
         For example to get all pending_followers use : 
         FriendShip.by_status(db, key='pending_followers', limit=10)
         '''
-        if doc['doctype'] == 'FriendDocument':
+        if doc['doctype'] == 'FriendDocument' and doc.has_key('status'):
             yield doc['status'], doc
 
     @ViewField.define('friend')

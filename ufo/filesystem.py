@@ -52,6 +52,9 @@ def _reduce_sum(keys, values):
             size += value['stats']['st_size']
     return size
 
+def _reduce_count(keys, values):
+    return len(values)
+
 class SyncDocument(UTF8Document):
 
     doctype  = TextField(default="SyncDocument")
@@ -67,6 +70,7 @@ class SyncDocument(UTF8Document):
                    st_size    = LongField(),
                    st_uid     = IntegerField()))
     xattrs   = DictField()
+    acl      = ListField(DictField())
 
     # TODO: Use a dedicated document class for tags
     tags = ListField(TextField())
@@ -132,14 +136,10 @@ class SyncDocument(UTF8Document):
 
     @property
     def posix_acl(self):
-	try:
-            posix_acl_access = eval(repr(self.xattrs.get('system.posix_acl_access', u''))[1:])
-            if posix_acl_access:
-                return acl.ACL.from_xattr(posix_acl_access)
-            else:
-                return acl.ACL.from_mode(self.stats['st_mode'])
-        except:
-            return acl.ACL()
+       if self.acl:
+           return acl.ACL.from_json(self.acl, self.mode)
+
+       return acl.ACL.from_mode(self.mode)
 
     def __str__(self):
         return '<%s id:%s path:%s type:%s>' % \
@@ -227,29 +227,12 @@ class SyncDocument(UTF8Document):
           for i in xrange(len(doc['filename']) - 2):
               yield doc['filename'][i:].lower(), doc
 
-    @ViewField.define('syncdocument')
+    @ViewField.define('syncdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_count, reduce=False)
     def by_provider_and_participant(doc):
-        from ufo.acl import ACL, ACL_XATTR, ACL_USER
-        if doc['doctype'] == 'SyncDocument' and doc.get('xattrs', {}).has_key(ACL_XATTR):
-            try:
-                acl = ACL.from_xattr(eval(repr(doc['xattrs'][ACL_XATTR])[1:]))
-                for ace in acl:
-                    if ace.kind & ACL_USER:
-                        yield [ int(doc['stats']['st_uid']), ace._qualifier, doc['dirpath'] + "/" + doc['filename'] ], doc
-            except: pass
-
-    @ViewField.define('syncdocument')
-    def by_participant(doc):
-        import pwd
-        from ufo.acl import ACL, ACL_XATTR, ACL_USER
-        if doc['doctype'] == 'SyncDocument' and doc.get('xattrs', {}).has_key(ACL_XATTR):
-            try:
-                acl = ACL.from_xattr(eval(repr(doc['xattrs'][ACL_XATTR])[1:]))
-                for ace in acl:
-                    if ace.kind & ACL_USER:
-                        yield pwd.getpwuid(ace._qualifier).pw_name, doc
-            except: pass
-
+        import os
+        if doc['doctype'] == 'SyncDocument' and doc.has_key('acl'):
+            for ace in doc['acl']:
+                yield [ int(doc['stats']['st_uid']), ace['qualifier'], os.path.join(doc['dirpath'], doc['filename']) ], doc
 
 def create(func):
     def cache_create(self, *args, **kw):
@@ -603,8 +586,9 @@ class CouchedFileSystem(Debugger):
         '''
 
         document = self[path]
+        is_acl = key == "system.posix_acl_access"
 
-        if key == "system.posix_acl_access":
+        if is_acl:
             if value == None:
                 new_acl = acl.ACL()
             else:
@@ -658,27 +642,36 @@ class CouchedFileSystem(Debugger):
                     return []
 
                 # We compute a new value for the extended attribute
-                value = file_acl.to_xattr()
+                value = file_acl.to_json()
                 document.mode = (document.mode & ~7) | file_acl.get(acl.ACL_OTHER)._perms
 
         if not db_only:
             if value == None:
                 self.realfs.removexattr(path, key)
             else:
-                if key == "system.posix_acl_access":
+                if is_acl:
                     self.realfs.set_acl(path, file_acl)
                 else:
                     self.realfs.setxattr(path, key, value)
 
         if value == None:
-            del document.xattrs[key]
+            if is_acl:
+                self.acl = []
+
+            elif document.xattrs.has_key(key):
+                del document.xattrs[key]
+
         else:
-            if document.xattrs:
-                document.xattrs[key] = eval('u' + repr(value))
-                self.doc_helper.update(document)
+            if is_acl:
+                document.acl = value
+
             else:
-                _tuple = { key : eval('u' + repr(value)) }
-                document.xattrs = dict(**_tuple)
+                if document.xattrs:
+                    document.xattrs[key] = eval('u' + repr(value))
+                    self.doc_helper.update(document)
+                else:
+                    _tuple = { key : eval('u' + repr(value)) }
+                    document.xattrs = dict(**_tuple)
 
         return self.doc_helper.update(document)
 

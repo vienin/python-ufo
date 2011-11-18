@@ -18,7 +18,7 @@ import sys
 import syslog
 import traceback
 
-import config
+from ufo import config
 
 class Debugger(object):
   '''

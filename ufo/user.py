@@ -1,7 +1,5 @@
 import os
-import posix1e
 from new import instancemethod
-import ufo.config as config
 from ufo.database import DocumentHelper
 from ufo.constants import Notification, FriendshipStatus
 from ufo.sharing import FriendDocument
@@ -179,6 +177,7 @@ class User(Friend):
     def process_pending_shares(self, friend):
         # TODO: Use View Collation
         # TODO: Fix ACL applying
+        import posix1e
         pending_friend = self.friends[friend]
         for share in pending_friend.pending_shares:
             file = self.sync_helper.by_id(key=share, pk=True)

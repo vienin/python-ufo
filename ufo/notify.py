@@ -15,18 +15,15 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import utils
-import config
 import os
 from datetime import datetime
 import new
 from gettext import dgettext
 
-from debugger import Debugger
-from constants import ShareDoc
-
-from database import *
-
-from ufo.utils import ComponentProxy, get_user_infos
+from ufo.debugger import Debugger
+from ufo.constants import ShareDoc
+from ufo.database import *
+from ufo.utils import get_user_infos
 from ufo.user import user
 
 class TranslatableText:

@@ -18,12 +18,9 @@
 
 import os
 import stat
-import uuid
 import errno
 import shutil
-import xattr
 import difflib
-import subprocess
 
 from ufo.utils import MutableStat, CacheDict, get_user_infos
 from ufo.debugger import Debugger

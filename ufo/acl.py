@@ -41,8 +41,12 @@ acl_perms = ( ( ACL_READ, "r" ),
               ( ACL_WRITE, "wa" ),
               ( ACL_EXECUTE, "x" ) )
 
+json_perms = ( ( ACL_READ, "read" ),
+               ( ACL_WRITE, "write" ),
+               ( ACL_EXECUTE, "execute" ) )
+
 class ACL(list):
-    default_domain = config.realm.lower()
+    default_domain = "agorabox.org"
 
     def __init__(self, *args, **kw):
         super(list, self).__init__(args, kw)
@@ -74,6 +78,14 @@ class ACL(list):
         while index < len(data):
             acl.append(ACE(*struct.unpack("HHI", data[index:index + 8])), False)
             index += 8
+        return acl
+
+    @staticmethod
+    def from_json(obj, mode=0):
+        acl = ACL(mode=mode)
+        acl.check()
+        for ace in obj:
+            acl.append(ACE.from_json(ace))
         return acl
 
     @staticmethod
@@ -128,6 +140,13 @@ class ACL(list):
         for ace in self:
             s += struct.pack("HHI", ace.kind, ace._perms, ace._qualifier)
         return s
+
+    def to_json(self):
+        self.sort()
+        self.check()
+        if len(self) == 0:
+            return None
+        return map(ACE.to_json, [ ace for ace in self if ace.kind == ACL_USER ])
 
     def calc_mask(self):
         mask = None
@@ -184,6 +203,10 @@ class ACE:
             qualifier = nfs4_acl_types[self.kind]
         return "A::%s:%s" % (qualifier, self.nfs4_perms)
 
+    def to_json(self):
+        return dict(qualifier=self._qualifier,
+                    privileges=self.json_perms)
+
     def __eq__(self, ace):
         return self.kind == ace.kind and self._perms == ace._perms and self._qualifier == ace._qualifier
 
@@ -206,6 +229,11 @@ class ACE:
         return ACE(_kind, _perms, _qualifier)
 
     @staticmethod
+    def from_json(ace):
+        ace = ACE(ACL_USER, ACE.perms_from_json(ace['privileges']), ace['qualifier'])
+        return ace
+
+    @staticmethod
     def perms_from_string(perms):
         _perms = 0
         for perm in perms.lower():
@@ -216,10 +244,22 @@ class ACE:
                     break
         return _perms
 
+    @staticmethod
+    def perms_from_json(perms):
+        _perms = 0
+        perms = set(perms)
+        if "read" in perms:
+            _perms |= ACL_READ
+        if "write" in perms:
+            _perms |= ACL_WRITE
+        if "execute" in perms:
+            _perms |= ACL_EXECUTE
+        return _perms
+
     @property
     def qualifier(self):
         if self.kind & ACL_USER:
-            return pwd.getpwuid(self._qualifier).pw_name
+            return get_user_infos(uid=self._qualifier)['login']
         return ""
 
     @property
@@ -238,5 +278,13 @@ class ACE:
         for perm, char in acl_perms:
             if self._perms & perm:
                perms += char
+        return perms
+
+    @property
+    def json_perms(self):
+        perms = []
+        for perm, s in json_perms:
+            if self._perms & perm:
+               perms.append(s)
         return perms
 

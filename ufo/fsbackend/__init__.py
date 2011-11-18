@@ -57,7 +57,7 @@ class GenericFileSystem(Debugger):
     def chmod(self, path, mode):
         return os.chmod(self.real_path(path), mode)
 
-    def chown(self, path, mode, uid, gid):
+    def chown(self, path, uid, gid):
         return os.chown(self.real_path(path), uid, gid)
 
     def utime(self, path, times):

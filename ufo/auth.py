@@ -158,6 +158,8 @@ class WebAuthAuthenticator(NullAuthenticator):
         self.bind(conn)
         return conn
 
+_authenticators = {}
+
 def get_authenticator(method):
     if method not in _authenticators:
         if method == "webauth":
@@ -166,34 +168,7 @@ def get_authenticator(method):
             authenticator = SPNEGOAuthenticator()
         else:
             raise Exception('Invalid authentication method %s' % method)
-        _authenticators[method] = authenticator
-    else:
-        authenticator = _authenticators[method]
     return authenticator
 
 def set_credentials(username, password):
     authenticator.set_credentials(username, password)
-
-"""
-def dispatch_auth(func):
-    def default_auth(*args, **kw):
-        method = kw.get("method", "webauth")
-        return func(get_authenticator(method), *args, **kw)
-
-    return default_auth
-
-@dispatch_auth
-def get_connection(authenticator, url):
-    return authenticator.get_connection(url)
-
-def bind(conn, service, host):
-    authenticator = get_authenticator(method)
-    return authenticator.bind(conn, service, host)
-
-def get_cookie():
-    return authenticator.get_cookie()
-
-def get_headers(service, host):
-    return authenticator.get_headers(service, host)
-"""
-

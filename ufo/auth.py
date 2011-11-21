@@ -51,7 +51,8 @@ class SPNEGOAuthenticator(NullAuthenticator):
 
         import kerberos as k
 
-        result, context = k.authGSSClientInit("%s@%s" % (service, host))
+        result, context = k.authGSSClientInit("%s@%s" % (service, host),
+                                              k.GSS_C_DELEG_FLAG)
         if result < 1:
             raise errors.AuthenticationError("authGSSClientInit returned result %d" % result)
 

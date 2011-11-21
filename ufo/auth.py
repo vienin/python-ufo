@@ -66,11 +66,12 @@ class SPNEGOAuthenticator(NullAuthenticator):
 class WebAuthAuthenticator(NullAuthenticator):
     LOGIN_HOST = "my.agorabox.org"
 
-    def __init__(self, username="", password=""):
+    def __init__(self, username="", password="", cookie=""):
         NullAuthenticator.__init__(self)
-        self.cookie = Cookie.SimpleCookie()
         self.username = username
         self.password = password
+        self.cookie = Cookie.SimpleCookie(cookie)
+        self.authenticated = cookie != ""
 
     def login(self):
         conn = HTTPSConnection(WebAuthAuthenticator.LOGIN_HOST, 443)
@@ -159,16 +160,13 @@ class WebAuthAuthenticator(NullAuthenticator):
         self.bind(conn)
         return conn
 
-_authenticators = {}
-
-def get_authenticator(method):
-    if method not in _authenticators:
-        if method == "webauth":
-            authenticator = WebAuthAuthenticator()
-        elif method == "spnego":
-            authenticator = SPNEGOAuthenticator()
-        else:
-            raise Exception('Invalid authentication method %s' % method)
+def get_authenticator(method, *args, **kw):
+    if method == "webauth":
+        authenticator = WebAuthAuthenticator(cookie=kw.get('cookie'))
+    elif method == "spnego":
+        authenticator = SPNEGOAuthenticator()
+    else:
+        raise Exception('Invalid authentication method %s' % method)
     return authenticator
 
 def set_credentials(username, password):

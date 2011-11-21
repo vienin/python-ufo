@@ -11,18 +11,13 @@ class NullAuthenticator(Debugger):
     def __init__(self):
         self.authenticated = False
 
-    def debug(self, msg):
-        print msg
-
     def login(self):
         self.authenticated = True
         return True
 
     def ensure_login(self):
         if not self.authenticated:
-            self.debug("Not authenticated yet, logging in")
             self.login()
-            self.debug("Successfully authenticated")
 
     def bind(self, conn, service="HTTP", host=""):
         if not host:
@@ -32,7 +27,6 @@ class NullAuthenticator(Debugger):
 
             for header, value in self.get_headers(service, host).items():
                 _self.putheader(header, value)
-                self.debug("Sending header %s=%s" % (header, value))
 
             try:
                 return _self.__class__.endheaders(_self, body)

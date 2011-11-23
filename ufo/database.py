@@ -132,7 +132,7 @@ class DocumentHelper(Debugger):
                                                                                   self.server.resource.session)
 
             # Creating database if needed
-            if type(db) == str:
+            if type(db) in (str, unicode):
                 if databases.has_key(db):
                     self.database = databases[db]
                 else:

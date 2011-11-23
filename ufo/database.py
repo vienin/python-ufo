@@ -139,7 +139,6 @@ class DocumentHelper(Debugger):
                     try:
                         self.database = self.server[db]
                     except:
-                        raise
                         self.database = self.server.create(db)
                     finally:
                         databases[db] = self.database

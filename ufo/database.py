@@ -273,11 +273,29 @@ class DocumentHelper(Debugger):
 
                 if opts.get("pk"):
                     return self._pk_view(attr, **opts)
-                return getattr(self.doc_class, attr).__call__(self.database, **opts)
+
+                def iterate_view():
+                    for row in getattr(self.doc_class, attr).__call__(self.database, **opts):
+                        if type(row) == dict:
+                            if type(row["value"]) == dict:
+                                yield row["key"], self.doc_class(**row["value"])
+                            else:
+                                yield row["key"], row["value"]
+                        else:
+                            yield row
+
+                return iterate_view()
 
             return view_wrapper
 
         return lambda *args, **kw: getattr(self.doc_class, attr).__call__(self.database, *args, **kw)
+
+    def __getitem__(self, key):
+        item = self.database[key]
+        if item["doctype"] != self.doc_class.__name__:
+            raise DocumentException("Invalid document type %s (wanted %s)" %
+                                    (item["type"], self.doc_class.__name__))
+        return item
 
     def __str__(self):
         return '<DocumentHelper class: %s server: %s database: %s>' % \

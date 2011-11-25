@@ -52,9 +52,4 @@ class FriendDocument(Document):
         if doc['doctype'] == 'FriendDocument' and doc.has_key('status'):
             yield doc['status'], doc
 
-    @ViewField.define('friend')
-    def by_id(doc):
-        if doc['doctype'] == "FriendDocument":
-          yield doc['_id'], doc
-
 

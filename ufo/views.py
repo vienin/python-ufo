@@ -20,9 +20,10 @@ import os
 import stat
 import utils
 
-from filesystem import SyncDocument
-from sharing import FriendDocument
-from utils import get_user_infos
+from ufo.filesystem import SyncDocument
+from ufo.sharing import FriendDocument
+from ufo.utils import get_user_infos
+from ufo.database import DocumentHelper
 
 from couchdb.mapping import ViewField
 
@@ -76,14 +77,13 @@ class FriendSyncDocument(SyncDocument):
 
     @classmethod
     def getDocuments(cls, database):
-        for row in cls.by_login(database):
-            if row['login'] != database.name and row['status'] != 'BLOCKED_USER':
-                infos = utils.get_user_infos(row['key'])
-                yield cls(filename=infos['login'],
+        for user in DocumentHelper(FriendDocument, database).by_login():
+            if user.login != database.name and user.status != 'BLOCKED_USER':
+                yield cls(filename=user.login,
                           dirpath=os.sep,
                           mode=0555 | stat.S_IFDIR,
-                          uid=infos['uid'],
-                          gid=infos['gid'],
+                          uid=user.uid,
+                          gid=user.gid,
                           type="application/x-directory")
 
 
@@ -91,19 +91,22 @@ class BuddySharesSyncDocument(SyncDocument):
 
     @classmethod
     def getDocuments(cls, database, buddy=None, *path):
+        helper = DocumentHelper(cls, database)
+
         if len(path) > 0:
             login = get_user_infos(uid=int(buddy))['login']
-            for doc in cls.by_dir(database,
-                                  key="/" + "/".join([login] + list(path))):
+            for doc in helper.by_dir(key="/" + "/".join([login] + list(path))):
                 yield doc
 
         elif buddy:
-            uid = int(buddy)
-            login = get_user_infos(uid=uid)['login']
+            uid = utils.get_user_infos(login=database.name)['uid']
+            provider = int(buddy)
+            login = get_user_infos(uid=provider)['login']
             shared_dirs = { }
-            startkey = [ uid, "/" + login ]
-            endkey = [ uid + 1 ]
-            for doc in cls.by_uid_and_path(database, startkey=startkey, endkey=endkey):
+            startkey = [ provider, uid ]
+            endkey = [ provider + 1, uid ]
+            for key, doc in helper.by_provider_and_participant(startkey=startkey,
+                                                               endkey=endkey):
                 if doc.type == "application/x-directory":
                     shared_dirs[doc.path] = doc
                 else:
@@ -113,10 +116,10 @@ class BuddySharesSyncDocument(SyncDocument):
 
         else:
             uid = utils.get_user_infos(login=database.name)['uid']
-            for row in cls.by_provider_and_participant(database, group_level=1, reduce=True):
-                if row['key'][0] != uid:
+            for key, doc in helper.by_provider_and_participant(group_level=1, reduce=True):
+                if key[0] != uid:
                     # Retrieve provider infos from gss api
-                    infos = utils.get_user_infos(uid=row['key'][0])
+                    infos = utils.get_user_infos(uid=key[0])
                     yield cls(filename=infos['login'],
                               dirpath=os.sep,
                               mode=0555 | stat.S_IFDIR,
@@ -129,20 +132,21 @@ class MySharesSyncDocument(SyncDocument):
 
     @classmethod
     def getDocuments(cls, database, buddy=None, *path):
+        helper = DocumentHelper(cls, database)
+
         if len(path) > 0:
             login = get_user_infos(uid=int(buddy))['login']
-            for doc in cls.by_dir(database,
-                                  key="/" + "/".join([login] + list(path))):
+            for doc in helper.by_dir(key="/" + "/".join([login] + list(path))):
                 yield doc
+
         elif buddy:
             uid = int(buddy)
             shared_dirs = {}
             provider_id = get_user_infos(login=database.name)['uid']
             startkey = [ provider_id, uid ]
             endkey = [ provider_id, uid + 1 ]
-            for doc in SyncDocument.by_provider_and_participant(database,
-                                                                startkey=startkey,
-                                                                endkey=endkey):
+            for key, doc in helper.by_provider_and_participant(startkey=startkey,
+                                                               endkey=endkey):
                 if doc.type == "application/x-directory":
                     shared_dirs[doc.path] = doc
                 else:
@@ -152,10 +156,12 @@ class MySharesSyncDocument(SyncDocument):
 
         else:
             uid = utils.get_user_infos(login=database.name)['uid']
-            for row in cls.by_provider_and_participant(database, startkey=[uid], group_level=2, reduce=True):
-                if row['key'][1] != uid:
+            for key, doc in helper.by_provider_and_participant(startkey=[uid],
+                                                               group_level=2,
+                                                               reduce=True):
+                if key != uid:
                     # Retrieve participant infos from gss api
-                    infos = utils.get_user_infos(uid=row['key'][1])
+                    infos = utils.get_user_infos(uid=key[1])
                     yield cls(filename=infos['login'],
                               dirpath=os.sep,
                               mode=0555 | stat.S_IFDIR,
@@ -166,26 +172,41 @@ class MySharesSyncDocument(SyncDocument):
 
 class TaggedSyncDocument(SyncDocument):
 
-    @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum)
-    def sorted_by_tag(doc):
-        if doc['doctype'] == "SyncDocument":
-            for tag in doc['tags']:
-                yield [ doc['stats']['st_uid'], tag ], 1
-
     @classmethod
     def getDocuments(cls, database, tag=None, uid=None):
+        helper = DocumentHelper(cls, database)
+
+        startkey = []
+        endkey = []
+
         if tag:
-            for doc in cls.by_tag(database, key=tag):
+            startkey.append(tag)
+            endkey.append(tag + "\u9999")
+        else:
+            startkey.append("_")
+            endkey.append(u"\u9999")
+
+        if uid:
+            startkey.append(uid)
+            endkey.append(uid + 1)
+
+        if tag:
+            for key, doc in helper.by_tag(startkey=startkey, endkey=endkey):
                 yield doc
 
         else:
-            kw = { "group" : True }
-            if uid:
-                kw["startkey"] = [ uid ]
-                kw["endkey"] = [ uid + 1 ]
-            for row in cls.sorted_by_tag(database, **kw):
-                yield cls(filename=row['key'][1],
+            kw = {}
+            if startkey and endkey:
+                kw["startkey"] = startkey
+                kw["endkey"] = endkey
+
+            for key, value in helper.by_tag(reduce=True, group_level=len(startkey), **kw):
+                # This is done to spare a view, hopefully this shouldn't happen
+                # very often and on a small dataset
+                if uid != None and key[1] != uid:
+                    continue
+
+                yield cls(filename=key[0],
                           dirpath=os.sep,
                           mode=0555 | stat.S_IFDIR,
                           type="application/x-directory")
-

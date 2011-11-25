@@ -183,7 +183,7 @@ class User(Friend):
         import posix1e
         pending_friend = self.friends[friend]
         for share in pending_friend.pending_shares:
-            file = self.sync_helper.by_id(key=share, pk=True)
+            file = self.sync_helper[share]
             new_acl = posix1e.ACL(text=str(file.posix_acl))
             ace = new_acl.append()
             ace.tag_type = posix1e.ACL_USER

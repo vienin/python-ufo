@@ -180,17 +180,6 @@ class SyncDocument(UTF8Document):
             yield doc['type'], doc
 
     @ViewField.define('syncdocument')
-    def by_uid(doc):
-        if doc['doctype'] == "SyncDocument":
-            yield doc['stats']['st_uid'], doc
-
-    @ViewField.define('syncdocument')
-    def by_uid_and_path(doc):
-        from os.path import join
-        if doc['doctype'] == "SyncDocument":
-            yield [ doc['stats']['st_uid'] ] + doc['dirpath'].split('/')[1:] + [ doc['filename'] ], doc
-
-    @ViewField.define('syncdocument')
     def by_dir(doc):
         if doc['doctype'] == "SyncDocument":
             yield doc['dirpath'], doc
@@ -207,16 +196,11 @@ class SyncDocument(UTF8Document):
                 last = current
                 current = dirname(current)
 
-    @ViewField.define('syncdocument')
+    @ViewField.define('syncdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_count, reduce=False)
     def by_tag(doc):
         if doc['doctype'] == "SyncDocument":
-          for tag in doc['tags']:
-            yield tag, doc
-
-    @ViewField.define('syncdocument')
-    def by_id(doc):
-      if doc['doctype'] == "SyncDocument":
-        yield doc['_id'], doc
+            for tag in doc['tags']:
+                yield [ tag, doc['stats']['st_uid'] ], doc
 
     @ViewField.define('syncdocument')
     def by_keyword(doc):

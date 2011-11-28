@@ -216,7 +216,7 @@ class SyncDocument(UTF8Document):
         import os
         if doc['doctype'] == 'SyncDocument' and doc.has_key('acl'):
             for ace in doc['acl']:
-                yield [ int(doc['stats']['st_uid']), ace['qualifier'], os.path.join(doc['dirpath'], doc['filename']) ], doc
+                yield [ int(doc['stats']['st_uid']), ace['qualifier'], posixpath.join(doc['dirpath'], doc['filename']) ], doc
 
 def create(func):
     def cache_create(self, *args, **kw):
@@ -263,7 +263,7 @@ def rename(func):
                 oldkey = old
                 rename = True
             else:
-                oldkey = os.path.join(doc.dirpath.replace(new, old, 1),
+                oldkey = posixpath.join(doc.dirpath.replace(new, old, 1),
                                       doc.filename)
 
             if self._cachedMetaDatas.has_key(oldkey):
@@ -917,6 +917,7 @@ class CouchedFileSystem(Debugger):
         return self.realfs.copy(src, dest, document)
 
     def real_path(self, path):
+        # Never use 'os.path.join' anywhere instead of for real path.
         return os.path.join(self.mount_point, path[1:])
 
     def __getitem__(self, path):

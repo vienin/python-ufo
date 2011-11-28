@@ -213,10 +213,10 @@ class SyncDocument(UTF8Document):
 
     @ViewField.define('syncdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_count, reduce=False)
     def by_provider_and_participant(doc):
-        import os
+        from posixpath import join
         if doc['doctype'] == 'SyncDocument' and doc.has_key('acl'):
             for ace in doc['acl']:
-                yield [ int(doc['stats']['st_uid']), ace['qualifier'], posixpath.join(doc['dirpath'], doc['filename']) ], doc
+                yield [ int(doc['stats']['st_uid']), ace['qualifier'], join(doc['dirpath'], doc['filename']) ], doc
 
 def create(func):
     def cache_create(self, *args, **kw):

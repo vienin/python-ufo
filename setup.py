@@ -1,7 +1,16 @@
 #!/usr/bin/env python
 
+import sys
+
 from distutils.core import setup
 from DistUtilsExtra.command import *
+
+
+cmdclass = { "build" : build_extra.build_extra }
+
+# Temporary disabled i18n on Windows for build
+if sys.platform != "win32":
+    cmdclass["build_i18n"] = build_i18n.build_i18n
 
 setup(name='python-ufo',
       version='0.7',
@@ -17,6 +26,5 @@ setup(name='python-ufo',
                    'Programming Language :: Python',
                    'Topic :: Utilities'],
       install_requires=['setuptools'],
-      cmdclass = { "build" : build_extra.build_extra,
-                   "build_i18n" :  build_i18n.build_i18n },
+      cmdclass = cmdclass,
 )

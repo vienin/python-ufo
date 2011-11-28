@@ -1,5 +1,4 @@
 import os
-import xattr
 import threading
 import errno
 
@@ -78,12 +77,14 @@ class GenericFileSystem(Debugger):
         return MimeType(self.real_path(path))
 
     def removexattr(self, path, key):
+        import xattr
         return xattr.removexattr(self.real_path(path), key)
 
     def rename(self, old, new):
         return os.rename(self.real_path(old), self.real_path(new))
 
     def setxattr(self, path, key, value):
+        import xattr
         return xattr.setxattr(self.real_path(path), key, value)
 
     def lockFile(self, filename):

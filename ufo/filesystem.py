@@ -27,6 +27,9 @@ from ufo.debugger import Debugger
 from ufo.database import *
 import ufo.acl as acl
 
+def _wrap_bypass(row):
+    return row
+
 def normpath(func):
     def handler(self, path, *args, **kw):
         return func(self, os.path.normpath(path), *args, **kw)
@@ -36,21 +39,6 @@ def norm2path(func):
     def handler(self, path, path2, *args, **kw):
         return func(self, os.path.normpath(path), os.path.normpath(path2), *args, **kw)
     return handler
-
-def _wrap_bypass(row):
-    return row
-
-def _reduce_sum(keys, values):
-    size = 0
-    for value in values:
-        if type(value) == int:
-            size += value
-        else:
-            size += value['stats']['st_size']
-    return size
-
-def _reduce_count(keys, values):
-    return len(values)
 
 class SyncDocument(UTF8Document):
 
@@ -168,52 +156,104 @@ class SyncDocument(UTF8Document):
     def isfile(self):
         return stat.S_ISREG(self.mode)
 
-    @ViewField.define('syncdocument')
-    def by_path(doc):
-        from os.path import join
-        if doc['doctype'] == "SyncDocument":
-            yield join(doc['dirpath'], doc['filename']), doc
+    by_path = ViewField('syncdocument',
+                        language = 'javascript',
+                        map_fun = "function (doc) {" \
+                                    "if (doc.doctype === 'SyncDocument') {" \
+                                      "if (doc.dirpath === '/') {" \
+                                        "emit('/' + doc.filename, doc);" \
+                                      "} else {" \
+                                        "emit(doc.dirpath + '/' + doc.filename, doc);" \
+                                      "}" \
+                                    "}" \
+                                  "}")
 
-    @ViewField.define('syncdocument')
-    def by_type(doc):
-        if doc['doctype'] == "SyncDocument":
-            yield doc['type'], doc
+    by_type = ViewField('syncdocument',
+                        language = 'javascript',
+                        map_fun = "function (doc) {" \
+                                    "if (doc.doctype === 'SyncDocument' && doc.type != 'application/x-directory') {" \
+                                      "emit(doc.type.split('/'), doc);" \
+                                    "}" \
+                                  "}",
+                        reduce_fun = "_count",
+                        reduce = False,
+                        wrapper = _wrap_bypass)
 
-    @ViewField.define('syncdocument')
-    def by_dir(doc):
-        if doc['doctype'] == "SyncDocument":
-            yield doc['dirpath'], doc
+    by_dir = ViewField('syncdocument',
+                       language = 'javascript',
+                       map_fun = "function (doc) {" \
+                                   "if (doc.doctype === 'SyncDocument') {" \
+                                     "emit(doc.dirpath, doc);" \
+                                   "}" \
+                                 "}")
 
-    @ViewField.define('syncdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum, reduce=False)
-    def by_dir_prefix(doc):
-        from os import sep
-        from os.path import dirname
-        if doc['doctype'] == "SyncDocument":
-            last = ''
-            current = doc['dirpath']
-            while current != sep and current != last:
-                yield current, doc
-                last = current
-                current = dirname(current)
+    by_dir_prefix = ViewField('syncdocument',
+                              language = 'javascript',
+                              map_fun = "function (doc) {" \
+                                          "if (doc.doctype === 'SyncDocument') {" \
+                                            "var last = '';" \
+                                            "var current = doc.dirpath;" \
+                                            "while (current !='/' && current != last) {" \
+                                              "emit(current, doc);" \
+                                              "current = current.slice(0, current.lastIndexOf('/'));" \
+                                            "}" \
+                                          "}" \
+                                        "}",
+                              reduce_fun = "function (keys,values,rereduce) {" \
+                                             "if(rereduce == false) {" \
+                                               "var size = 0;" \
+                                               "for (var i = 0; i<values.length; i++) {" \
+                                                 "if (values[i].stats)" \
+                                                   "size += values[i].stats.st_size;" \
+                                               "}" \
+                                               "return size;" \
+                                             "}" \
+                                             "else {" \
+                                               "return sum(values);" \
+                                             "}" \
+                                           "}",
+                              reduce = False,
+                              wrapper = _wrap_bypass)
 
-    @ViewField.define('syncdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_count, reduce=False)
-    def by_tag(doc):
-        if doc['doctype'] == "SyncDocument":
-            for tag in doc['tags']:
-                yield [ tag, doc['stats']['st_uid'] ], doc
+    by_tag = ViewField('syncdocument',
+                       language = 'javascript',
+                       map_fun = "function (doc) {" \
+                                   "if (doc.doctype === 'SyncDocument' && doc.tags) {" \
+                                     "for (var i=0; i<doc.tags.length; i++) {" \
+                                       "emit([doc.tags[i], doc.stats.st_uid], doc);" \
+                                     "}" \
+                                   "}" \
+                                 "}",
+                       reduce_fun = "_count",
+                       reduce = False,
+                       wrapper = _wrap_bypass)
 
-    @ViewField.define('syncdocument')
-    def by_keyword(doc):
-      if doc['doctype'] == 'SyncDocument' and doc['filename']:
-          for i in xrange(len(doc['filename']) - 2):
-              yield doc['filename'][i:].lower(), doc
+    by_keyword = ViewField('syncdocument',
+                       language = 'javascript',
+                       map_fun = "function (doc) {" \
+                                   "if (doc.doctype === 'SyncDocument') {" \
+                                     "for (var i=0; i<doc.filename.length-2; i++) {" \
+                                       "emit(doc.filename.slice(i).toLowerCase(), doc);" \
+                                     "}" \
+                                   "}" \
+                                 "}")
 
-    @ViewField.define('syncdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_count, reduce=False)
-    def by_provider_and_participant(doc):
-        import os
-        if doc['doctype'] == 'SyncDocument' and doc.has_key('acl'):
-            for ace in doc['acl']:
-                yield [ int(doc['stats']['st_uid']), ace['qualifier'], os.path.join(doc['dirpath'], doc['filename']) ], doc
+    by_provider_and_participant = ViewField('syncdocument',
+                                            language = 'javascript',
+                                            map_fun = "function (doc) {" \
+                                                        "if (doc.doctype === 'SyncDocument' && doc.acl) {" \
+                                                          "for (var i=0; i<doc.acl.length; i++) {" \
+                                                            "if (doc.dirpath === '/') {" \
+                                                              "emit([doc.stats.st_uid, doc.acl[i].qualifier, doc.dirpath+doc.filename], doc);" \
+                                                            "} else {" \
+                                                              "emit([doc.stats.st_uid, doc.acl[i].qualifier, doc.dirpath+'/'+doc.filename], doc);" \
+                                                            "}" \
+                                                          "}" \
+                                                        "}" \
+                                                      "}",
+                                            reduce_fun = "_count",
+                                            reduce = False,
+                                            wrapper=_wrap_bypass)
 
 def create(func):
     def cache_create(self, *args, **kw):

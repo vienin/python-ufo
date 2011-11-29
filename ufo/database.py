@@ -65,10 +65,13 @@ class ChangesSequenceDocument(Document):
     consumer   = TextField()
     seq_number = IntegerField()
 
-    @ViewField.define('changessequence')
-    def by_consumer(doc):
-        if doc['doctype'] == "ChangesSequenceDocument":
-            yield doc['consumer'], doc
+    by_consumer = ViewField('changessequence',
+                            language = 'javascript',
+                            map_fun = "function(doc) {" \
+                                        "if (doc.doctype === 'ChangesSequenceDocument') {" \
+                                          "emit(doc.consumer, doc);" \
+                                        "}" \
+                                      "}")
 
 
 class ChangesFiltersDocument(Document):
@@ -162,8 +165,18 @@ class DocumentHelper(Debugger):
     def sync(self):
         # Synchronizing all couchdb views of the document class
         for attr in self.doc_class.__dict__:
-            if isinstance(getattr(self.doc_class, attr), ViewDefinition):
-                getattr(self.doc_class, attr).sync(self.database)
+            value = getattr(self.doc_class, attr)
+            if isinstance(value, ViewDefinition):
+                # Spare a little bit of space
+                if value.language == 'javascript':
+                    import re
+                    remove_spaces = re.compile(r" ?(\W) ?") #([\({}=;,&])
+                    repl = lambda match: match.group(1)
+                    if value.map_fun:
+                        value.map_fun = remove_spaces.sub(repl, value.map_fun)
+                    if value.reduce_fun:
+                        value.reduce_fun = remove_spaces.sub(repl, value.reduce_fun)
+                value.sync(self.database)
 
     def commit(self):
       self.debug("%s: Syncing changes" % (self))

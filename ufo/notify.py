@@ -53,22 +53,28 @@ class NotificationDocument(Document, Debugger):
     initiator = TextField()
     target    = TextField()
 
+    by_id = ViewField('notification',
+                      language = 'javascript',
+                      map_fun = "function (doc) {" \
+                                  "if (doc.doctype === 'NotificationDocument') {" \
+                                    "emit(doc._id, doc);" \
+                                  "}" \
+                                "}")
+
+    by_subtype_and_initiator = ViewField('notification',
+                                         language = 'javascript',
+                                         map_fun = "function (doc) {" \
+                                                     "if (doc.doctype === 'NotificationDocument' && doc.subtype && doc.initiator) {" \
+                                                       "emit([doc.subtype, doc.initiator], doc);" \
+                                                     "}" \
+                                                   "}")
+
     def __init__(self, **fields):
         super(NotificationDocument, self).__init__()
 
         if fields.get('initiator') and fields.get('target'):
           self.initiator = fields['initiator']
           self.target  = fields['target']
-
-    @ViewField.define('notification')
-    def by_id(doc):
-      if doc['doctype'] == "NotificationDocument":
-        yield doc['_id'], doc
-
-    @ViewField.define('notification')
-    def by_subtype_and_initiator(doc):
-      if doc['doctype'] == "NotificationDocument" and doc.get('subtype') and doc.get('initiator'):
-        yield [ doc.get('subtype'), doc.get('initiator') ], doc
 
     @action(_("Dismiss"))
     def dismiss(self):

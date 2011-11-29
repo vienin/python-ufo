@@ -33,23 +33,26 @@ class FriendDocument(Document):
 
     pending_shares = DictField()
 
-    @ViewField.define('friend')
-    def by_login(doc):
-        if doc['doctype'] == 'FriendDocument':
-            yield doc['login'], doc
+    by_login = ViewField('friend',
+                         language = 'javascript',
+                         map_fun = "function (doc){" \
+                                     "if (doc.doctype === 'FriendDocument') {" \
+                                       "emit(doc.login, doc);" \
+                                     "}" \
+                                   "}")
 
-    @ViewField.define('friend')
-    def by_login_and_status(doc):
-        if doc['doctype'] == 'FriendDocument' and doc.has_key('status'):
-            yield [doc['login'], doc['status']], doc
+    by_login_and_status = ViewField('friend',
+                                    language = 'javascript',
+                                    map_fun = "function (doc) {" \
+                                                "if (doc.doctype === 'FriendDocument' && doc.status) {" \
+                                                  "emit([doc.login, doc.status], doc);" \
+                                                "}" \
+                                              "}")
 
-    @ViewField.define('friend')
-    def by_status(doc):
-        '''
-        For example to get all pending_followers use : 
-        FriendShip.by_status(db, key='pending_followers', limit=10)
-        '''
-        if doc['doctype'] == 'FriendDocument' and doc.has_key('status'):
-            yield doc['status'], doc
-
-
+    by_status = ViewField('friend',
+                          language = 'javascript',
+                          map_fun = "function (doc) {" \
+                                      "if (doc.doctype === 'FriendDocument' && doc.status) {" \
+                                        "emit(doc.status, doc);" \
+                                      "}" \
+                                    "}")

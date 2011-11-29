@@ -25,33 +25,17 @@ from ufo.sharing import FriendDocument
 from ufo.utils import get_user_infos
 from ufo.database import DocumentHelper
 
-from couchdb.mapping import ViewField
-
-
-def _wrap_bypass(row):
-    return row
-
-def _reduce_sum(keys, values):
-    return sum(values)
-
-def _reduce_unique(keys, values):
-    return True
-
 
 class SortedByTypeSyncDocument(SyncDocument):
 
-    @ViewField.define('viewsdocument', wrapper=_wrap_bypass, reduce_fun=_reduce_sum)
-    def sorted_by_type(doc):
-        if doc['doctype'] == "SyncDocument" and \
-           doc["type"] != "application/x-directory":
-            yield doc['type'].split('/'), 1
-
     @classmethod
     def getDocuments(cls, database, category=None, type=None):
+        helper = DocumentHelper(SyncDocument, database)
+
         if type:
             assert category
 
-            for doc in cls.by_type(database, key="%s/%s" % (category, type)):
+            for doc in helper.by_type(key="%s/%s" % (category, type)):
               yield doc
 
         else:
@@ -62,12 +46,11 @@ class SortedByTypeSyncDocument(SyncDocument):
 
             end = start + [{}]
             dirpath = "/" + "/".join(start)
-            for row in cls.sorted_by_type(database,
-                                          startkey=start,
-                                          endkey=end,
-                                          group_level=len(start) + 1):
+            for key, doc in helper.by_type(startkey=start,
+                                           endkey=end,
+                                           group_level=len(start) + 1, reduce=True):
 
-                yield cls(filename=row['key'][len(start)],
+                yield cls(filename=key[len(start)],
                           dirpath=dirpath,
                           mode=0555 | stat.S_IFDIR,
                           type="application/x-directory")
@@ -101,7 +84,6 @@ class BuddySharesSyncDocument(SyncDocument):
         elif buddy:
             uid = utils.get_user_infos(login=database.name)['uid']
             provider = int(buddy)
-            login = get_user_infos(uid=provider)['login']
             shared_dirs = { }
             startkey = [ provider, uid ]
             endkey = [ provider + 1, uid ]

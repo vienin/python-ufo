@@ -218,13 +218,15 @@ class User(Friend):
 
     @property
     def contacts(self):
-        if not User._contacts:
+        if not self._contacts:
             contacts = {}
             for doc in self.friend_helper.by_login():
                 self._user_cache[doc.login] = doc
                 contacts[doc.login] = Friend(doc)
-            User._contacts = contacts
-        return User._contacts
+            self._contacts = True
+            return contacts
+        else:
+            return self._user_cache
 
     @property
     @FriendFilter(status=FriendshipStatus.PENDING_FRIEND)

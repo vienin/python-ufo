@@ -466,7 +466,7 @@ class CouchedFileSystem(Debugger):
 
     @create
     @normpath
-    def mkdir(self, path, mode, uid=None, gid=None, document=None):
+    def mkdir(self, path, mode=0700, uid=None, gid=None, document=None):
         '''
         Call type : "Create"
         '''

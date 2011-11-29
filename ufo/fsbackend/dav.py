@@ -140,7 +140,7 @@ class WebDAVFileSystem(GenericFileSystem):
         return headers
 
     @davexcept_to_errno
-    def mkdir(self, path, mode, document=None, *args, **kw):
+    def mkdir(self, path, mode=0700, document=None, *args, **kw):
         col = WebdavClient.CollectionStorer(self.url + os.path.dirname(path), self.connection)
         col.addCollection(os.path.basename(path), extra_hdrs=self._document_to_headers(document))
 

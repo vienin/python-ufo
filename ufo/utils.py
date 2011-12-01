@@ -79,13 +79,19 @@ class MimeType(object):
     _path  = None
 
     def __init__(self, path):
-        self._magic = magic.open(magic.MAGIC_MIME)
-        self._magic.load()
+        if sys.platform == "win32":
+            self._magic = magic.Magic(True)
+        else:
+            self._magic = magic.open(magic.MAGIC_MIME)
+            self._magic.load()
 
         self._path = path
 
     def basic(self):
-        return str(self._magic.file(self._path).split(";")[0])
+        if sys.platform == "win32":
+            return str(self._magic.from_file(self._path).split(" ")[0])
+        else:
+            return str(self._magic.file(self._path).split(";")[0])
 
 
 class CacheDict(dict):

@@ -5,7 +5,6 @@ import errno
 import httplib
 import simplejson
 import base64
-import pwd
 
 import ufo.acl as acl
 import ufo.auth

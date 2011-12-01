@@ -15,6 +15,9 @@ class NullAuthenticator(Debugger):
         self.authenticated = True
         return True
 
+    def logout(self):
+        pass
+
     def ensure_login(self):
         if not self.authenticated:
             self.login()
@@ -116,8 +119,13 @@ class WebAuthAuthenticator(NullAuthenticator):
             self.authenticated = True
             self.clear_credentials()
 
+            if 'webauth_at' in self.cookie:
+                return True
+
         else:
-            raise errors.InvalidAuthenticationMethod(method=self.method)
+            raise errors.InvalidAuthenticationMethod(method=self.__class__.__name__)
+
+        return False
 
     def logout(self):
         self.cookie = Cookie.SimpleCookie()

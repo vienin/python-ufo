@@ -19,7 +19,6 @@
 import os
 import socket
 import new
-import kerberos as k
 from uuid import uuid4
 from urlparse import urlsplit
 

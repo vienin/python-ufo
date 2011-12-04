@@ -711,6 +711,9 @@ class CouchedFileSystem(Debugger):
         if key == "system.posix_acl_default":
             return acl.ACL.from_mode(0700)
 
+        elif key == "system.posix_acl_access":
+            return document.posix_acl.to_xattr()
+
         return eval(repr(document.xattrs[key])[1:])
 
     @update

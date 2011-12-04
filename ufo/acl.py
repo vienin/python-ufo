@@ -81,9 +81,9 @@ class ACL(list):
     @staticmethod
     def from_json(obj, mode=0):
         acl = ACL(mode=mode)
-        acl.check()
         for ace in obj:
             acl.append(ACE.from_json(ace))
+        acl.check()
         return acl
 
     @staticmethod

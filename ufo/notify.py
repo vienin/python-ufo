@@ -69,8 +69,8 @@ class NotificationDocument(Document, Debugger):
                                                      "}" \
                                                    "}")
 
-    def __init__(self, **fields):
-        super(NotificationDocument, self).__init__()
+    def __init__(self, *args, **fields):
+        super(NotificationDocument, self).__init__(*args, **fields)
 
         if fields.get('initiator') and fields.get('target'):
           self.initiator = fields['initiator']

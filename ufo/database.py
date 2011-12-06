@@ -42,6 +42,12 @@ class UTF8Document(Document):
 
         super(UTF8Document, self).__init__(*args, **fields)
 
+        if fields.has_key("_id"):
+            self._data["_id"] = fields["_id"]
+
+        if fields.has_key("_rev"):
+            self._data["_rev"] = fields["_rev"]
+
     def __getattribute__(self, attr):
       result = super(UTF8Document, self).__getattribute__(attr)
 
@@ -307,7 +313,12 @@ class DocumentHelper(Debugger):
         if item["doctype"] != self.doc_class.__name__:
             raise DocumentException("Invalid document type %s (wanted %s)" %
                                     (item["type"], self.doc_class.__name__))
-        return item
+        obj = self.doc_class(item['_id'], **item)
+        if item.has_key('rev'):
+            obj._data['rev'] = item['rev']
+        elif item.has_key('_rev'):
+            obj._data['_rev'] = item['_rev']
+        return obj
 
     def __str__(self):
         return '<DocumentHelper class: %s server: %s database: %s>' % \

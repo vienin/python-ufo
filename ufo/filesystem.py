@@ -495,6 +495,7 @@ class CouchedFileSystem(Debugger):
             updated.append(self.doc_helper.create(**fields))
 
         else:
+            stats = document.stats
             document._data['_id'] = document.id
             self.doc_helper.database.save(document._data)
             updated.append(document)
@@ -502,8 +503,7 @@ class CouchedFileSystem(Debugger):
         # Finally update the stats of the parent directory into the database
         if posixpath.dirname(path) != os.sep:
             parent = self[posixpath.dirname(path)]
-            parent.set_stats(self.realfs.lstat(os.path.dirname(path)))
-
+            parent.stats.st_mtime = stats.st_mtime
             updated.extend(self.doc_helper.update(parent))
         
         return updated

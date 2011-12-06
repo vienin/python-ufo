@@ -362,11 +362,11 @@ class CouchedFile(Debugger):
                 else:
                     self.debug("Creating default new document")
 
-                    stats = os.lstat(self.filesystem.real_path(path))
-                    fields = { 'filename' : posixpath.basename(path),  
-                               'dirpath'  : posixpath.dirname(path),   
-                               'uid'      : uid,
-                               'gid'      : gid,
+                    stats = MutableStat(os.lstat(self.filesystem.real_path(path)))
+                    stats.st_uid = uid
+                    stats.st_gid = gid
+                    fields = { 'filename' : posixpath.basename(path),
+                               'dirpath'  : posixpath.dirname(path),
                                'mode'     : mode,
                                'type'     : "application/x-empty",
                                'stats'    : stats }
@@ -483,13 +483,11 @@ class CouchedFileSystem(Debugger):
 
         # Then create the document into the database
         if not document:
-            stats = self.realfs.lstat(path)
-            if not uid: uid = stats.st_uid
-            if not gid: gid = stats.st_gid
+            stats = MutableStat(self.realfs.lstat(path))
+            stats.st_uid = uid
+            stats.st_gid = gid
             fields = { 'filename' : posixpath.basename(path),
                        'dirpath'  : posixpath.dirname(path),
-                       'uid'      : uid,
-                       'gid'      : gid,
                        'mode'     : mode | stat.S_IFDIR,
                        'type'     : "application/x-directory",
                        'stats'    : stats }
@@ -521,18 +519,16 @@ class CouchedFileSystem(Debugger):
         # Firstly make the symlink on the filesystem
         self.realfs.symlink(dest, symlink)
 
-        stats = self.realfs.lstat(symlink)
-        if not uid:
-            uid = stats.st_uid
-        if not gid:
-            gid = stats.st_gid
+        stats = MutableStat(self.realfs.lstat(symlink))
+        if uid:
+            stats.st_uid = uid
+        if gid:
+            stats.st_gid = gid
 
         if not document:
             # Then create the document into the database
             fields = { 'filename' : posixpath.basename(symlink),
                        'dirpath'  : posixpath.dirname(symlink),
-                       'uid'      : uid,
-                       'gid'      : gid,
                        'mode'     : 0777 | stat.S_IFLNK,
                        'type'     : "application/x-symlink",
                        'stats'    : stats }
@@ -881,8 +877,6 @@ class CouchedFileSystem(Debugger):
 
         fields = { 'filename' : posixpath.basename(path),
                    'dirpath'  : posixpath.dirname(path),
-                   'uid'      : stats.st_uid,
-                   'gid'      : stats.st_gid,
                    'mode'     : stats.st_mode,
                    'type'     : mimetype,
                    'stats'    : stats }
@@ -975,9 +969,7 @@ class RootSyncDocument(SyncDocument):
 
   def __init__(self, stats):
     fixedfields = { 'filename' : "/",
-                    'dirpath'  : "", 
-                    'uid'      : stats.st_uid,
-                    'gid'      : stats.st_uid,
+                    'dirpath'  : "",
                     'mode'     : stats.st_mode | stat.S_IFDIR,
                     'type'     : "application/x-directory",
                     'stats'    : stats }

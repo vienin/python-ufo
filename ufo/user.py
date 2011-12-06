@@ -46,6 +46,9 @@ class Friend(Debugger):
     def __setitem__(self, index, value):
         self.doc[index] = value
 
+    def __repr__(self):
+        return self.login
+
 class User(Friend):
     _user_cache = {}
     _contacts = None

@@ -362,7 +362,7 @@ class CouchedFile(Debugger):
                 else:
                     self.debug("Creating default new document")
 
-                    stats = MutableStat(os.lstat(self.filesystem.real_path(path)))
+                    stats = MutableStat(self.filesystem.realfs.lstat(path))
                     stats.st_uid = uid
                     stats.st_gid = gid
                     fields = { 'filename' : posixpath.basename(path),
@@ -378,11 +378,10 @@ class CouchedFile(Debugger):
 
     def close(self, release=True):
         path = posixpath.join(self.document.dirpath, self.document.filename)
-        realpath = self.filesystem.real_path(path)
 
         try:
             self.file_ptr.close()
-            newstats = os.lstat(realpath)
+            newstats = self.filesystem.realfs.lstat(path)
 
         except (OSError, IOError), e:
             self.debug("Could not close %s (%s), %s" % (path, realpath, e.message))
@@ -949,10 +948,6 @@ class CouchedFileSystem(Debugger):
 
     def copy(self, src, dest, document=None):
         return self.realfs.copy(src, dest, document)
-
-    def real_path(self, path):
-        # Never use 'os.path.join' anywhere instead of for real path.
-        return os.path.join(self.mount_point, path[1:])
 
     def __getitem__(self, path):
       return self._get(path)

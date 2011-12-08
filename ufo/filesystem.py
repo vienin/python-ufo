@@ -805,7 +805,7 @@ class CouchedFileSystem(Debugger):
 
         # Firstly remove the file from the filesystem
         if force:
-            shutil.rmtree(self.real_path(path), ignore_errors=True)
+            self.realfs.rmtree(path, ignore_errors=True)
         else:
             self.realfs.rmdir(path)
 

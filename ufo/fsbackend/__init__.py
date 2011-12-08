@@ -1,6 +1,7 @@
 import os
 import threading
 import errno
+import shutil
 
 from ufo.debugger import Debugger
 from ufo.utils import MimeType
@@ -53,6 +54,9 @@ class GenericFileSystem(Debugger):
 
     def rmdir(self, path):
         return os.rmdir(self.real_path(path))
+
+    def rmtree(self, path, ignore_errors=False):
+        shutil.rmtree(self.real_path(path), ignore_errors=ignore_errors)
 
     def unlink(self, path):
         return os.unlink(self.real_path(path))

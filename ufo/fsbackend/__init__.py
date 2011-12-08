@@ -77,6 +77,11 @@ class GenericFileSystem(Debugger):
         fd = os.open(self.real_path(path), flags, mode)
         return os.fdopen(fd, self.flags_to_stdio(flags))
 
+    def truncate(self, path, length):
+        fd = os.open(self.real_path(path), os.O_WRONLY)
+        os.ftruncate(fd, length)
+        os.close(fd)
+
     def get_mime_type(self, path):
         return MimeType(self.real_path(path))
 

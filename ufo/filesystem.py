@@ -848,15 +848,11 @@ class CouchedFileSystem(Debugger):
     @update  
     def truncate(self, path, length):
         document = self[path]
-        real_path = self.real_path(path)
 
-        # Truncate the file
-        fd = os.open(real_path, os.O_WRONLY)
-        os.ftruncate(fd, length)
-        os.close(fd)
+        self.realfs.truncate(path, length)
 
         # Update the document stats
-        document.set_stats(os.stat(real_path))
+        document.set_stats(self.realfs.lstat(path))
 
         return self.doc_helper.update(document)
 

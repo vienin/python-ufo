@@ -709,7 +709,10 @@ class CouchedFileSystem(Debugger):
         elif key == "system.posix_acl_access":
             return document.posix_acl.to_xattr()
 
-        return eval(repr(document.xattrs[key])[1:])
+        if type(document.xattrs[key]) == unicode:
+            return eval(repr(document.xattrs[key])[1:])
+        else:
+            return document.xattrs[key]
 
     @update
     @normpath

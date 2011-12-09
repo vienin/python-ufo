@@ -35,7 +35,7 @@ class SortedByTypeSyncDocument(SyncDocument):
         if type:
             assert category
 
-            for doc in helper.by_type(key="%s/%s" % (category, type)):
+            for key, doc in helper.by_type(key=[category, type]):
               yield doc
 
         else:

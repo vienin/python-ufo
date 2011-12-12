@@ -80,7 +80,7 @@ class MimeType(object):
 
     def __init__(self, path):
         if sys.platform == "win32":
-            self._magic = magic.Magic(True)
+            self._magic = magic.Magic(True, magic_file=os.path.join('.', 'magic.mgc'))
         else:
             self._magic = magic.open(magic.MAGIC_MIME)
             self._magic.load()

@@ -30,6 +30,7 @@ class FriendDocument(Document):
     gid       = IntegerField()
     firstname = TextField()
     lastname  = TextField()
+    email     = TextField()
 
     pending_shares = DictField()
 

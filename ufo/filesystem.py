@@ -947,7 +947,10 @@ class CouchedFileSystem(Debugger):
 
     @normpath
     def du(self, path):
-        return self.doc_helper.by_dir_prefix(key=path, pk=True, reduce=True)['value']
+        try:
+            return self.doc_helper.by_dir_prefix(key=path, pk=True, reduce=True)['value']
+        except:
+            return 0
 
     def copy(self, src, dest, document=None):
         return self.realfs.copy(src, dest, document)

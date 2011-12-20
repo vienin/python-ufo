@@ -251,11 +251,6 @@ class DocumentHelper(Debugger):
 
         self.database.delete(document)
 
-    def changes(self, **opts):
-        opts["filter"] = "changes/by_type"
-        opts["type"] = self.doc_class.__name__
-        return self.database.changes(**opts)
-
     def replicate(self, db_name, server="http://localhost:5984", auth=None, reverse=False, **opts):
         if auth:
             # The connection for the replication is created by the CouchDB server

@@ -28,7 +28,7 @@ from errors import ConflictError
 
 from couchdb.http import ResourceNotFound, ResourceConflict, Session
 from couchdb.client import Server
-from couchdb.design import ViewDefinition
+from couchdb.design import ViewDefinition, FilterFunction, sync_docs
 from couchdb.mapping import *
 
 couchdb_servers = {}
@@ -169,19 +169,31 @@ class DocumentHelper(Debugger):
 
     def sync(self):
         # Synchronizing all couchdb views of the document class
+        views = []
+
+        # Spare a lit bit of space for Javascript views
+        import re
+        def _minify(language, code):
+            if language == "javascript":
+                return re.compile(r" ?(\W) ?").sub(lambda match: match.group(1),
+                                                   code)
+            else:
+                return code
+
         for attr in self.doc_class.__dict__:
             value = getattr(self.doc_class, attr)
             if isinstance(value, ViewDefinition):
-                # Spare a little bit of space
-                if value.language == 'javascript':
-                    import re
-                    remove_spaces = re.compile(r" ?(\W) ?") #([\({}=;,&])
-                    repl = lambda match: match.group(1)
-                    if value.map_fun:
-                        value.map_fun = remove_spaces.sub(repl, value.map_fun)
-                    if value.reduce_fun:
-                        value.reduce_fun = remove_spaces.sub(repl, value.reduce_fun)
-                value.sync(self.database)
+                if value.map_fun:
+                    value.map_fun = _minify(value.language, value.map_fun)
+                if value.reduce_fun:
+                    value.reduce_fun = _minify(value.language, value.reduce_fun)
+                views.append(value)
+
+            elif isinstance(value, FilterFunction):
+                value[value.language] = _minify(value.language, value[value.language])
+                
+        ViewDefinition.sync_many(self.database, views)
+        sync_docs(self.database, [self.doc_class])
 
     def commit(self):
       self.debug("%s: Syncing changes" % (self))

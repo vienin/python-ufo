@@ -26,7 +26,7 @@ import ufo.auth
 from debugger import Debugger
 from errors import ConflictError
 
-from couchdb.http import ResourceNotFound, ResourceConflict, Session
+from couchdb.http import ResourceNotFound, ServerError, ResourceConflict, Session
 from couchdb.client import Server
 from couchdb.design import ViewDefinition, FilterFunction, sync_docs
 from couchdb.mapping import *
@@ -271,7 +271,7 @@ class DocumentHelper(Debugger):
 
         try:
             return self.server.replicate(src, dest, **opts)
-        except ResourceNotFound, e:
+        except (ResourceNotFound, ServerError), e:
             raise DocumentException("Can not replicate %s to %s (%s)" %
                                     (src, dest, e.message))
 

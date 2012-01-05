@@ -714,6 +714,15 @@ class CouchedFileSystem(Debugger):
         else:
             return document.xattrs[key]
 
+    @normpath
+    def listxattr(self, path):
+        '''
+        Call type : "Read"
+        '''
+
+        return [ "system.posix_acl_default",
+                 "system.posix_acl_access" ] + self[path].xattrs.keys()
+        
     @update
     @normpath
     def utime(self, path, times):

@@ -59,7 +59,7 @@ class SortedByTypeSyncDocument(SyncDocument):
 class FriendSyncDocument(SyncDocument):
 
     @classmethod
-    def getDocuments(cls, database):
+    def getDocuments(cls, database, buddy=None, *path):
         for user in DocumentHelper(FriendDocument, database).by_login():
             if user.login != database.name and user.status != 'BLOCKED_USER':
                 yield cls(filename=user.login,
